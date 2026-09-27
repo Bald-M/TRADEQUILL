@@ -38,6 +38,6 @@
 
 - 客户与联系人管理、业务 CRUD、商机流转及跟进等业务能力尚未实现，当前仅提供框架和占位页面。
 - 数据导入、导出、完整备份及恢复尚未实现；数据库尚无应用层加密。
-- 已记录 macOS Apple Silicon 调试 `.app` 的构建与启动验证；Windows 编译及实机运行尚未验证。具体历史证据见 [验收记录](docs/validation.md)。
+- 已记录 macOS Apple Silicon 调试 `.app` 的构建与启动验证；GitHub Actions 已验证 Windows x64、macOS Apple Silicon 和 macOS Intel 安装包构建。Windows 与 macOS 安装包仍待实机安装验收，具体证据见 [验收记录](docs/validation.md)。
 - Windows 包尚未签名；macOS 包使用临时签名但尚未公证。正式分发和自动更新尚未配置。
-- 安装包工作流需要完成首次远端运行验证；目前没有业务自动化测试。
+- 安装包工作流已完成首次远端运行验证；目前没有业务自动化测试。

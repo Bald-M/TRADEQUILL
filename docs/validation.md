@@ -14,6 +14,8 @@
 - 界面预览在 1280 和 900×600 尺寸检查；导航、业务占位说明、浅/深主题、浏览器环境提示及重试正常，控制台无 error/warn。
 - 键盘 Tab 可到达主题按钮；提供跳到主要内容链接和减弱动态效果样式。
 - Standards 与 Spec 两项独立静态审查：初始候选均无发现，依赖修正后做增量复审。
+- [GitHub Actions 桌面检查](https://github.com/Bald-M/TRADEQUILL/actions/runs/36310571742)：Windows 与 macOS 的格式、前端构建、Rust 格式、Clippy 及 Tauri 无安装包构建全部通过。
+- `pnpm desktop:build:all --ref main`：[首次远端安装包构建](https://github.com/Bald-M/TRADEQUILL/actions/runs/36310990140)成功生成并下载 Windows x64 的 MSI/NSIS、macOS Apple Silicon DMG 和 macOS Intel DMG。
 
 ## 依赖修正
 
@@ -21,8 +23,8 @@
 
 ## 尚未验证或未实现
 
-- Windows 构建/实机运行：已配置远端工作流，尚未记录首次 CI 构建结果或实机验收。
-- Release 优化包、签名、公证、安装分发、自动更新。
+- Windows 与 macOS 安装包的实机安装和启动验收；当前仅记录 macOS Apple Silicon 调试 `.app` 的实机运行结果。
+- Windows 签名、macOS 正式签名与公证、正式分发、自动更新。
 - 业务 CRUD、业务数据导入导出及完整备份恢复。
 - 此框架阶段采用构建和实际桌面冒烟验证，尚无业务自动化测试。
 - ask-matt 的 Issue tracker 与领域文档布局尚未完成项目级配置。
