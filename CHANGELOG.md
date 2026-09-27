@@ -8,6 +8,7 @@
 
 ### Added
 
+- 贡献指南，涵盖开发流程、验证、数据安全与问题反馈要求。
 - 中英文 README 与双向语言切换链接。
 - 基于 Tauri 2、React、TypeScript、Vite、Tailwind CSS 4 和 shadcn/ui（Radix）的桌面应用基础框架，面向 Windows 和 macOS。
 - 工作台、客户管理、业务管理、数据管理与设置的统一导航；尚未实现的业务模块明确标注为“规划中”。

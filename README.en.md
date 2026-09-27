@@ -74,3 +74,7 @@ Theme preferences are stored in the local WebView's localStorage. Business data 
 The production CSP permits only local resources and Tauri IPC. The frontend is not granted arbitrary file access or SQL execution permissions. Future business modules should expose capabilities through explicit Rust commands, without allowing arbitrary SQL or arbitrary file path access from the interface.
 
 This project has no remote repository configured. Release signing, validation on Windows hardware, and production distribution require further setup.
+
+## Contributing
+
+See the [contribution guide](CONTRIBUTING.md) (in Chinese) for the development workflow, validation requirements, and bug reporting guidance.
