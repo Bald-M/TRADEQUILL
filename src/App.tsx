@@ -1,0 +1,383 @@
+import { useEffect, useState } from "react";
+import {
+  ArrowRight,
+  BriefcaseBusiness,
+  Check,
+  ChevronRight,
+  Database,
+  Feather,
+  FolderArchive,
+  LayoutDashboard,
+  LoaderCircle,
+  Moon,
+  RefreshCw,
+  Settings2,
+  ShieldCheck,
+  Sun,
+  Users,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { useTheme } from "@/hooks/use-theme";
+import { getWorkspaceStatus, type WorkspaceStatus } from "@/lib/workspace";
+import "./App.css";
+
+const pages = [
+  { id: "overview", label: "工作台", icon: LayoutDashboard },
+  { id: "customers", label: "客户管理", icon: Users },
+  { id: "business", label: "业务管理", icon: BriefcaseBusiness },
+  { id: "data", label: "数据管理", icon: FolderArchive },
+  { id: "settings", label: "设置", icon: Settings2 },
+] as const;
+type Page = (typeof pages)[number]["id"];
+type StorageState =
+  | { kind: "loading" }
+  | { kind: "ready"; data: WorkspaceStatus }
+  | { kind: "error"; message: string };
+
+function App() {
+  const [page, setPage] = useState<Page>("overview");
+  const [storage, setStorage] = useState<StorageState>({ kind: "loading" });
+  const [attempt, setAttempt] = useState(0);
+  const { dark, toggleTheme } = useTheme();
+  const activePage = pages.find((item) => item.id === page)!;
+
+  useEffect(() => {
+    let cancelled = false;
+    getWorkspaceStatus().then(
+      (data) => {
+        if (!cancelled) setStorage({ kind: "ready", data });
+      },
+      (error: unknown) => {
+        if (!cancelled)
+          setStorage({
+            kind: "error",
+            message: error instanceof Error ? error.message : String(error),
+          });
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [attempt]);
+
+  const retry = () => {
+    setStorage({ kind: "loading" });
+    setAttempt((value) => value + 1);
+  };
+
+  return (
+    <div className="flex min-h-screen bg-background text-foreground">
+      <a
+        href="#main-content"
+        className="sr-only fixed top-3 left-3 z-50 rounded bg-primary px-4 py-2 text-primary-foreground focus:not-sr-only"
+      >
+        跳到主要内容
+      </a>
+      <aside className="sticky top-0 flex h-screen w-56 shrink-0 flex-col border-r bg-sidebar p-4">
+        <div className="flex items-center gap-3 px-2 py-5">
+          <div className="flex size-10 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+            <Feather className="size-5" aria-hidden="true" />
+          </div>
+          <div>
+            <p className="text-lg font-semibold tracking-tight">TradeQuill</p>
+            <p className="text-xs text-muted-foreground">个人外贸工作台</p>
+          </div>
+        </div>
+        <p className="mt-7 mb-3 px-3 text-xs font-medium text-muted-foreground">
+          工作空间
+        </p>
+        <nav aria-label="主要导航" className="space-y-1">
+          {pages.map(({ id, label, icon: Icon }) => (
+            <Button
+              key={id}
+              variant={page === id ? "secondary" : "ghost"}
+              className="h-11 w-full justify-start gap-3"
+              aria-current={page === id ? "page" : undefined}
+              onClick={() => setPage(id)}
+            >
+              <Icon className="size-4" aria-hidden="true" />
+              {label}
+            </Button>
+          ))}
+        </nav>
+        <div className="mt-auto space-y-4 px-2">
+          <div className="rounded-lg border bg-background p-3">
+            <ShieldCheck
+              className="mb-2 size-4 text-primary"
+              aria-hidden="true"
+            />
+            <p className="text-sm font-medium">你的数据，留在本机</p>
+            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+              个人工作空间 · 无云端同步
+            </p>
+          </div>
+          <p className="pb-1 text-xs text-muted-foreground">
+            TradeQuill <span className="float-right">v0.1.0</span>
+          </p>
+        </div>
+      </aside>
+
+      <div className="min-w-0 flex-1">
+        <header className="flex h-16 items-center justify-between border-b px-8">
+          <div className="flex items-center gap-2 text-sm">
+            <span className="text-muted-foreground">个人空间</span>
+            <ChevronRight
+              className="size-3 text-muted-foreground"
+              aria-hidden="true"
+            />
+            <span>{activePage.label}</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <Badge variant="outline">本地模式</Badge>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label={dark ? "切换到浅色主题" : "切换到深色主题"}
+              onClick={toggleTheme}
+            >
+              {dark ? <Sun aria-hidden="true" /> : <Moon aria-hidden="true" />}
+            </Button>
+          </div>
+        </header>
+
+        <main
+          id="main-content"
+          tabIndex={-1}
+          className="mx-auto max-w-6xl space-y-7 p-8 focus:outline-none"
+        >
+          <div>
+            <p className="mb-2 text-xs font-medium tracking-widest text-muted-foreground">
+              TRADEQUILL / WORKSPACE
+            </p>
+            <h1 className="text-3xl font-semibold tracking-tight">
+              {page === "overview"
+                ? "让每一次业务往来，井然有序。"
+                : activePage.label}
+            </h1>
+            <p className="mt-3 text-sm leading-6 text-muted-foreground">
+              {page === "overview"
+                ? "从这里开始，逐步建立属于你的客户与业务工作空间。"
+                : "一个专注、轻量的本地外贸工作空间。"}
+            </p>
+          </div>
+
+          {storage.kind !== "ready" && (
+            <div
+              role="status"
+              className="flex items-center gap-3 rounded-lg border bg-muted/40 p-4 text-sm"
+            >
+              {storage.kind === "loading" ? (
+                <>
+                  <LoaderCircle
+                    className="size-4 animate-spin motion-reduce:animate-none"
+                    aria-hidden="true"
+                  />
+                  正在连接本地工作区…
+                </>
+              ) : (
+                <>
+                  <Database className="size-4 shrink-0" aria-hidden="true" />
+                  <p className="min-w-0 flex-1 break-words">
+                    {storage.message}
+                  </p>
+                  <Button variant="outline" size="sm" onClick={retry}>
+                    <RefreshCw aria-hidden="true" />
+                    重试
+                  </Button>
+                </>
+              )}
+            </div>
+          )}
+
+          {page === "overview" && (
+            <>
+              <div className="grid gap-4 xl:grid-cols-3">
+                {[
+                  {
+                    title: "客户关系",
+                    text: "集中整理客户资料与每一次沟通。",
+                    icon: Users,
+                    target: "customers" as Page,
+                  },
+                  {
+                    title: "业务进展",
+                    text: "为商机、报价与跟进建立清晰的脉络。",
+                    icon: BriefcaseBusiness,
+                    target: "business" as Page,
+                  },
+                  {
+                    title: "本地资料",
+                    text: "为数据交换、文件整理和备份做好准备。",
+                    icon: FolderArchive,
+                    target: "data" as Page,
+                  },
+                ].map(({ title, text, icon: Icon, target }) => (
+                  <Card key={target} className="shadow-none">
+                    <CardHeader>
+                      <Icon
+                        className="mb-4 size-5 text-primary"
+                        aria-hidden="true"
+                      />
+                      <CardTitle>{title}</CardTitle>
+                      <CardDescription className="leading-6">
+                        {text}
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <Button
+                        variant="ghost"
+                        className="-ml-3"
+                        onClick={() => setPage(target)}
+                      >
+                        查看模块
+                        <ArrowRight aria-hidden="true" />
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+              <Card className="shadow-none">
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle>工作空间已起步</CardTitle>
+                    <Badge variant="secondary">基础框架</Badge>
+                  </div>
+                  <CardDescription>
+                    桌面基础设施已接入，业务能力将逐步完善。
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-5">
+                  <div className="grid gap-4 lg:grid-cols-2">
+                    {[
+                      "独立桌面窗口",
+                      "浅色与深色主题",
+                      "本地数据库连接",
+                      "模块导航与统一组件",
+                    ].map((label) => (
+                      <div
+                        key={label}
+                        className="flex items-center gap-3 text-sm"
+                      >
+                        {label === "本地数据库连接" &&
+                        storage.kind !== "ready" ? (
+                          <Database
+                            className="size-4 text-muted-foreground"
+                            aria-hidden="true"
+                          />
+                        ) : (
+                          <Check
+                            className="size-4 text-primary"
+                            aria-hidden="true"
+                          />
+                        )}
+                        <span>
+                          {label}
+                          {label === "本地数据库连接" &&
+                          storage.kind !== "ready"
+                            ? "（待连接）"
+                            : ""}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  <Separator />
+                  <p className="text-sm leading-6 text-muted-foreground">
+                    当前尚未创建业务记录。客户录入、商机流转、导入导出和完整备份将在后续版本实现。
+                  </p>
+                </CardContent>
+              </Card>
+            </>
+          )}
+
+          {(page === "customers" || page === "business" || page === "data") && (
+            <Card className="shadow-none">
+              <CardContent className="flex min-h-80 flex-col items-center justify-center p-10 text-center">
+                <activePage.icon
+                  className="mb-5 size-9 text-muted-foreground"
+                  aria-hidden="true"
+                />
+                <h2 className="text-lg font-medium">
+                  {page === "customers"
+                    ? "客户资料，从这里开始"
+                    : page === "business"
+                      ? "为下一笔业务，留好位置"
+                      : "数据管理，即将就绪"}
+                </h2>
+                <p className="mt-3 max-w-md text-sm leading-7 text-muted-foreground">
+                  {page === "customers"
+                    ? "客户与联系人模块尚未实现。后续将在这里添加客户档案、标签和跟进记录。"
+                    : page === "business"
+                      ? "业务模块尚未实现。后续将在这里管理商机阶段、报价记录与跟进任务。"
+                      : "导入、导出与完整备份尚未实现。业务表格与包含附件的完整备份将分别提供。"}
+                </p>
+                <Badge variant="outline" className="mt-5">
+                  规划中
+                </Badge>
+              </CardContent>
+            </Card>
+          )}
+
+          {page === "settings" && (
+            <Card className="shadow-none">
+              <CardHeader>
+                <CardTitle>本地工作空间</CardTitle>
+                <CardDescription>
+                  业务数据保存在系统的应用数据目录中。
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-5">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm">外观</span>
+                  <Button variant="outline" onClick={toggleTheme}>
+                    {dark ? "切换浅色" : "切换深色"}
+                  </Button>
+                </div>
+                <Separator />
+                {storage.kind === "ready" ? (
+                  <dl className="space-y-5 text-sm">
+                    <div>
+                      <dt className="mb-2 text-muted-foreground">数据库位置</dt>
+                      <dd className="select-text break-all rounded bg-muted p-3 font-mono text-xs">
+                        {storage.data.databasePath}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="mb-2 text-muted-foreground">附件目录</dt>
+                      <dd className="select-text break-all rounded bg-muted p-3 font-mono text-xs">
+                        {storage.data.attachmentsPath}
+                      </dd>
+                    </div>
+                    <div className="flex justify-between">
+                      <dt className="text-muted-foreground">数据库版本</dt>
+                      <dd>{storage.data.schemaVersion}</dd>
+                    </div>
+                  </dl>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    连接成功后将显示本地数据位置。
+                  </p>
+                )}
+                <Separator />
+                <p className="text-sm leading-6 text-muted-foreground">
+                  本版本不接入在线
+                  AI、云端同步或遥测。请妥善保管本机数据；完整备份功能尚在规划中。
+                </p>
+              </CardContent>
+            </Card>
+          )}
+        </main>
+      </div>
+    </div>
+  );
+}
+
+export default App;
