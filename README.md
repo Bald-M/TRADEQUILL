@@ -16,10 +16,12 @@
     <a href="#安全与扩展边界">安全</a> ·
     <a href="DESIGN.md">设计文档</a> ·
     <a href="CONTRIBUTING.md">参与贡献</a> ·
-    <a href="CHANGELOG.md">更新日志</a>
+    <a href="CHANGELOG.md">更新日志</a> ·
+    <a href="#许可证">许可证</a>
   </p>
 
   <p>
+    <a href="LICENSE"><img src="https://img.shields.io/badge/LICENSE-APACHE%202.0-06b6d4?style=for-the-badge&amp;labelColor=525252" alt="许可证：Apache 2.0"></a>
     <img src="https://img.shields.io/badge/VERSION-0.1.0-0284c7?style=for-the-badge&amp;labelColor=525252" alt="版本：0.1.0">
     <img src="https://img.shields.io/badge/STATUS-IN%20DEVELOPMENT-16a34a?style=for-the-badge&amp;labelColor=525252" alt="状态：开发中">
   </p>
@@ -47,6 +49,7 @@
 - macOS：Xcode Command Line Tools (`xcode-select --install`)。
 - Windows：Microsoft C++ Build Tools（Desktop development with C++）、WebView2。
 - 各平台原生构建；在 Windows 上构建 Windows 安装包，在 macOS 上构建 macOS 包。
+- 跨平台远端打包需要已登录的 [GitHub CLI](https://cli.github.com/) (`gh auth login`)。
 
 详细依赖见 [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/)。
 
@@ -66,9 +69,12 @@ pnpm build
 cargo fmt --manifest-path src-tauri/Cargo.toml --check
 pnpm check:rust
 pnpm desktop:build
+pnpm desktop:build:all
 ```
 
-构建产物位于 `src-tauri/target/release/bundle/`。目前不配置发布签名、公证、自动更新或在线发布；默认包只用于本地开发验证。Windows/macOS 检查工作流已经配置，连接 GitHub 远端后才会运行。
+`pnpm desktop:build` 在当前平台构建，产物位于 `src-tauri/target/<目标>/release/bundle/`。`pnpm desktop:build:all` 会触发 [GitHub Actions 打包工作流](.github/workflows/package.yml)，并行构建 Windows x64、macOS Apple Silicon 和 macOS Intel 安装包；命令会等待工作流完成，再将全部产物下载到 `release/<run-id>/`。当前分支必须已推送到 GitHub。
+
+远端包用于开发验证：Windows 包尚未签名，macOS 包使用临时签名但尚未公证，也未配置自动更新或在线发布。
 
 Tauri 的 Rust 核心与前端 API 固定在 2.11 系列，间接依赖以 `Cargo.lock` 为准。升级时一并验证 Tauri core/runtime/macros/build/codegen/utils，不要单独删除锁文件或只升级其中一个包。
 
@@ -86,6 +92,8 @@ pnpm exec shadcn add input dialog table
 - `src/lib/workspace.ts`：类型明确的 Tauri IPC 边界，浏览器预览不伪造数据库状态。
 - `src-tauri/src/storage.rs`：应用目录和 SQLite schema 初始化。
 - `src-tauri/src/lib.rs`：异步桌面命令，磁盘操作在阻塞任务池执行。
+- `.github/workflows/package.yml`：Windows/macOS 安装包矩阵构建与产物上传。
+- `scripts/build-desktop-all.mjs`：触发远端打包、等待结果并下载全部产物。
 - `docs/bootstrap.md`：本次框架范围与验收方式。
 
 ## 本地数据
@@ -103,8 +111,12 @@ Tauri 按 `com.tradequill.desktop` 标识确定应用数据目录，设置页显
 
 生产 CSP 只允许本地资源和 Tauri IPC，未授予前端任意文件访问或 SQL 执行权限。后续增加业务模块时，用明确的 Rust 命令暴露能力，不向界面暴露任意 SQL 或任意路径读写。
 
-本项目没有绑定远端仓库。发布签名、Windows 实机验收和正式分发需后续配置。
+项目托管于 [Bald-M/TRADEQUILL](https://github.com/Bald-M/TRADEQUILL)，配置了双平台检查与安装包构建工作流。发布签名、Windows 实机验收和正式分发仍需后续完成。
 
 ## 参与贡献
 
 开发流程、检查要求和问题反馈方式见 [贡献指南](CONTRIBUTING.md)。
+
+## 许可证
+
+本项目基于 [Apache License 2.0](LICENSE) 许可。

@@ -16,10 +16,12 @@
     <a href="#security-and-extension-boundaries">Security</a> ·
     <a href="DESIGN.md">Design</a> ·
     <a href="CONTRIBUTING.md">Contributing</a> ·
-    <a href="CHANGELOG.md">Changelog</a>
+    <a href="CHANGELOG.md">Changelog</a> ·
+    <a href="#license">License</a>
   </p>
 
   <p>
+    <a href="LICENSE"><img src="https://img.shields.io/badge/LICENSE-APACHE%202.0-06b6d4?style=for-the-badge&amp;labelColor=525252" alt="License: Apache 2.0"></a>
     <img src="https://img.shields.io/badge/VERSION-0.1.0-0284c7?style=for-the-badge&amp;labelColor=525252" alt="Version: 0.1.0">
     <img src="https://img.shields.io/badge/STATUS-IN%20DEVELOPMENT-16a34a?style=for-the-badge&amp;labelColor=525252" alt="Status: In development">
   </p>
@@ -47,6 +49,7 @@ Customer management, business management, import/export, and full backups are cu
 - macOS: Xcode Command Line Tools (`xcode-select --install`).
 - Windows: Microsoft C++ Build Tools (Desktop development with C++) and WebView2.
 - Native builds on each platform: build Windows installers on Windows and macOS bundles on macOS.
+- Cross-platform remote packaging requires an authenticated [GitHub CLI](https://cli.github.com/) (`gh auth login`).
 
 See the [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/) for details.
 
@@ -66,9 +69,12 @@ pnpm build
 cargo fmt --manifest-path src-tauri/Cargo.toml --check
 pnpm check:rust
 pnpm desktop:build
+pnpm desktop:build:all
 ```
 
-Build artifacts are located in `src-tauri/target/release/bundle/`. Release signing, notarization, automatic updates, and online publishing are not currently configured; default bundles are intended only for local development validation. Windows/macOS check workflows are configured and will run once the project is connected to a GitHub remote.
+`pnpm desktop:build` builds for the current platform and writes bundles under `src-tauri/target/<target>/release/bundle/`. `pnpm desktop:build:all` triggers the [GitHub Actions packaging workflow](.github/workflows/package.yml), which builds Windows x64, macOS Apple Silicon, and macOS Intel packages in parallel. The command waits for completion and downloads every artifact into `release/<run-id>/`. The current branch must already exist on GitHub.
+
+Remote packages are intended for development validation: Windows packages are unsigned, macOS packages use ad-hoc signing without notarization, and automatic updates or online publishing are not configured.
 
 The Tauri Rust core and frontend API are pinned to the 2.11 series; transitive dependencies are recorded in `Cargo.lock`. When upgrading, validate Tauri core/runtime/macros/build/codegen/utils together. Do not delete the lockfile or upgrade just one of these packages in isolation.
 
@@ -86,6 +92,8 @@ pnpm exec shadcn add input dialog table
 - `src/lib/workspace.ts`: typed Tauri IPC boundary; browser previews do not simulate a successful database connection.
 - `src-tauri/src/storage.rs`: application directory and SQLite schema initialization.
 - `src-tauri/src/lib.rs`: asynchronous desktop commands, with disk operations handled by the blocking task pool.
+- `.github/workflows/package.yml`: matrix builds and artifact uploads for Windows/macOS installers.
+- `scripts/build-desktop-all.mjs`: triggers remote packaging, waits for completion, and downloads every artifact.
 - `docs/bootstrap.md`: foundation scope and acceptance criteria (in Chinese).
 
 ## Local data
@@ -103,8 +111,12 @@ Theme preferences are stored in the local WebView's localStorage. Business data 
 
 The production CSP permits only local resources and Tauri IPC. The frontend is not granted arbitrary file access or SQL execution permissions. Future business modules should expose capabilities through explicit Rust commands, without allowing arbitrary SQL or arbitrary file path access from the interface.
 
-This project has no remote repository configured. Release signing, validation on Windows hardware, and production distribution require further setup.
+The project is hosted at [Bald-M/TRADEQUILL](https://github.com/Bald-M/TRADEQUILL) with cross-platform checks and installer packaging workflows. Release signing, validation on Windows hardware, and production distribution still require further work.
 
 ## Contributing
 
 See the [contribution guide](CONTRIBUTING.md) (in Chinese) for the development workflow, validation requirements, and bug reporting guidance.
+
+## License
+
+Licensed under the [Apache License 2.0](LICENSE).
