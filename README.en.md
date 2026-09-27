@@ -1,8 +1,38 @@
-# TradeQuill
+<div align="center">
+  <img src="src-tauri/icons/icon.png" width="132" alt="TradeQuill logo">
 
-[简体中文](README.md) | **English**
+  <h1>TradeQuill</h1>
 
-A local-first desktop workspace for individual foreign trade professionals, built for Windows and macOS.
+  <p>
+    A local-first desktop workspace for individual foreign trade professionals on Windows and macOS.<br>
+    Organize customer records, business follow-ups, and local data in one place.
+  </p>
+
+  <p>
+    <a href="#current-scope">Scope</a> ·
+    <a href="#development-environment">Quick start</a> ·
+    <a href="#project-structure">Structure</a> ·
+    <a href="#local-data">Local data</a> ·
+    <a href="#security-and-extension-boundaries">Security</a> ·
+    <a href="DESIGN.md">Design</a> ·
+    <a href="CONTRIBUTING.md">Contributing</a> ·
+    <a href="CHANGELOG.md">Changelog</a>
+  </p>
+
+  <p>
+    <img src="https://img.shields.io/badge/VERSION-0.1.0-0284c7?style=for-the-badge&amp;labelColor=525252" alt="Version: 0.1.0">
+    <img src="https://img.shields.io/badge/STATUS-IN%20DEVELOPMENT-16a34a?style=for-the-badge&amp;labelColor=525252" alt="Status: In development">
+  </p>
+  <p>
+    <img src="https://img.shields.io/badge/DESKTOP-macOS%20%7C%20Windows-a3aab8?style=for-the-badge&amp;labelColor=525252" alt="Desktop platforms: macOS and Windows">
+    <img src="https://img.shields.io/badge/STACK-Tauri%20%7C%20React-06b6d4?style=for-the-badge&amp;labelColor=525252" alt="Stack: Tauri and React">
+    <img src="https://img.shields.io/badge/DATA-Local%20%7C%20SQLite-6366f1?style=for-the-badge&amp;labelColor=525252" alt="Data: Local SQLite">
+  </p>
+
+  <p>
+    <a href="README.md"><code>简体中文</code></a> · <strong>English</strong>
+  </p>
+</div>
 
 ## Current scope
 

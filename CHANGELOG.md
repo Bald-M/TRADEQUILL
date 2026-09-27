@@ -8,6 +8,7 @@
 
 ### Added
 
+- 中英文 README 项目封面，包含项目图标、内容导航、状态徽章和语言切换入口。
 - 贡献指南，涵盖开发流程、验证、数据安全与问题反馈要求。
 - 中英文 README 与双向语言切换链接。
 - 基于 Tauri 2、React、TypeScript、Vite、Tailwind CSS 4 和 shadcn/ui（Radix）的桌面应用基础框架，面向 Windows 和 macOS。

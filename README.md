@@ -1,8 +1,38 @@
-# TradeQuill
+<div align="center">
+  <img src="src-tauri/icons/icon.png" width="132" alt="TradeQuill 图标">
 
-**简体中文** | [English](README.en.md)
+  <h1>TradeQuill</h1>
 
-本地优先的个人外贸桌面工作台，面向 Windows 和 macOS。
+  <p>
+    本地优先的个人外贸桌面工作台，面向 Windows 和 macOS。<br>
+    逐步整理客户资料、业务跟进和本地数据。
+  </p>
+
+  <p>
+    <a href="#当前范围">当前范围</a> ·
+    <a href="#开发环境">快速开始</a> ·
+    <a href="#项目结构">项目结构</a> ·
+    <a href="#本地数据">本地数据</a> ·
+    <a href="#安全与扩展边界">安全</a> ·
+    <a href="DESIGN.md">设计文档</a> ·
+    <a href="CONTRIBUTING.md">参与贡献</a> ·
+    <a href="CHANGELOG.md">更新日志</a>
+  </p>
+
+  <p>
+    <img src="https://img.shields.io/badge/VERSION-0.1.0-0284c7?style=for-the-badge&amp;labelColor=525252" alt="版本：0.1.0">
+    <img src="https://img.shields.io/badge/STATUS-IN%20DEVELOPMENT-16a34a?style=for-the-badge&amp;labelColor=525252" alt="状态：开发中">
+  </p>
+  <p>
+    <img src="https://img.shields.io/badge/DESKTOP-macOS%20%7C%20Windows-a3aab8?style=for-the-badge&amp;labelColor=525252" alt="桌面平台：macOS 和 Windows">
+    <img src="https://img.shields.io/badge/STACK-Tauri%20%7C%20React-06b6d4?style=for-the-badge&amp;labelColor=525252" alt="技术栈：Tauri 和 React">
+    <img src="https://img.shields.io/badge/DATA-Local%20%7C%20SQLite-6366f1?style=for-the-badge&amp;labelColor=525252" alt="数据：本地 SQLite">
+  </p>
+
+  <p>
+    <strong>简体中文</strong> · <a href="README.en.md"><code>English</code></a>
+  </p>
+</div>
 
 ## 当前范围
 
