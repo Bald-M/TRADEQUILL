@@ -38,6 +38,8 @@ pnpm desktop:build
 
 构建产物位于 `src-tauri/target/release/bundle/`。目前不配置发布签名、公证、自动更新或在线发布；默认包只用于本地开发验证。Windows/macOS 检查工作流已经配置，连接 GitHub 远端后才会运行。
 
+Tauri 的 Rust 核心与前端 API 固定在 2.11 系列，间接依赖以 `Cargo.lock` 为准。升级时一并验证 Tauri core/runtime/macros/build/codegen/utils，不要单独删除锁文件或只升级其中一个包。
+
 添加 shadcn 组件：
 
 ```sh
