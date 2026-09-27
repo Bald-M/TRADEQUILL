@@ -1,5 +1,7 @@
 # TradeQuill
 
+**简体中文** | [English](README.en.md)
+
 本地优先的个人外贸桌面工作台，面向 Windows 和 macOS。
 
 ## 当前范围
