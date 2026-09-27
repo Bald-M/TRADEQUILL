@@ -6,7 +6,7 @@ const workflow = "package.yml";
 const args = process.argv.slice(2);
 
 if (args.includes("--help")) {
-  console.log(`Usage: pnpm desktop:build:all [-- --ref <branch>]
+  console.log(`Usage: pnpm desktop:build:all [--ref <branch>]
 
 Triggers the Windows and macOS packaging workflow, waits for it to finish,
 then downloads every artifact into release/<run-id>/.`);
@@ -50,13 +50,15 @@ if (!ref)
   throw new Error("A branch is required; detached HEAD is not supported");
 
 console.log(`Starting ${workflow} on ${ref}...`);
-const dispatchedAt = Date.now() - 5_000;
+const requestId = `cli-${Date.now()}-${process.pid}`;
 const dispatchOutput = capture("gh", [
   "workflow",
   "run",
   workflow,
   "--ref",
   ref,
+  "--raw-field",
+  `request_id=${requestId}`,
 ]);
 let runId = dispatchOutput.match(/\/actions\/runs\/(\d+)/)?.[1];
 
@@ -75,11 +77,14 @@ for (let attempt = 0; !runId && attempt < 15; attempt += 1) {
       "--limit",
       "5",
       "--json",
-      "databaseId,createdAt",
+      "databaseId,displayTitle",
     ]),
   );
   runId = runs
-    .find((candidate) => Date.parse(candidate.createdAt) >= dispatchedAt)
+    .find(
+      (candidate) =>
+        candidate.displayTitle === `Desktop packages · ${requestId}`,
+    )
     ?.databaseId.toString();
 }
 
