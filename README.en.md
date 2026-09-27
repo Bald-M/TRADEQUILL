@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="src-tauri/icons/icon.png" width="132" alt="TradeQuill logo">
+  <img src="./docs/assets/tradequill-brand-mark.svg" width="132" alt="TradeQuill logo">
 
   <h1>TradeQuill</h1>
 
