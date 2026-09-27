@@ -1,0 +1,98 @@
+name: Bug 报告
+description: 报告可复现的 TradeQuill 桌面应用、数据或打包问题
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢反馈。提交前请搜索已有 Issue，并移除客户资料、业务附件、密钥、令牌和用户名路径等敏感信息。疑似安全漏洞不要在公开表单中发布可利用细节；只提供不敏感的影响概述，并请求维护者确认私密渠道。
+
+  - type: input
+    id: app-version
+    attributes:
+      label: 应用版本或提交
+      placeholder: 例如 0.1.0、提交 SHA 或 CI 构建编号
+    validations:
+      required: true
+
+  - type: dropdown
+    id: platform
+    attributes:
+      label: 操作系统与架构
+      options:
+        - Windows x64
+        - macOS Apple Silicon
+        - macOS Intel
+        - 其他（请在补充信息中说明）
+    validations:
+      required: true
+
+  - type: dropdown
+    id: runtime
+    attributes:
+      label: 运行方式
+      options:
+        - 已安装的桌面应用
+        - Tauri 桌面开发模式
+        - 浏览器预览
+        - 安装或打包阶段
+    validations:
+      required: true
+
+  - type: input
+    id: schema-version
+    attributes:
+      label: 数据库 schema 版本
+      description: 涉及数据初始化、迁移或持久化时填写；不要上传真实客户数据库。
+      placeholder: 例如 1，或“不适用”
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      placeholder: |
+        1. 启动……
+        2. 打开……
+        3. 执行……
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: 预期行为
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: 实际行为
+    validations:
+      required: true
+
+  - type: textarea
+    id: data-impact
+    attributes:
+      label: 数据影响与恢复情况
+      description: 说明是否丢失、重复或错误修改数据，以及重启或重试后的结果；不适用时可留空。
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: 已脱敏日志、截图或补充信息
+      description: 可粘贴少量相关日志或拖入图片；请勿上传真实客户资料、完整数据库、业务附件、密钥、令牌或本机用户名路径。
+
+  - type: checkboxes
+    id: confirmations
+    attributes:
+      label: 提交确认
+      options:
+        - label: 我已搜索已有 Issue，并确认这不是重复报告。
+          required: true
+        - label: 我已说明问题发生在桌面应用、浏览器预览还是安装/打包阶段。
+          required: true
+        - label: 我已移除客户资料、业务附件、账户、密钥、令牌和用户名路径等敏感信息。
+          required: true
