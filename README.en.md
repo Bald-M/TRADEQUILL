@@ -72,7 +72,7 @@ pnpm desktop:build
 pnpm desktop:build:all
 ```
 
-`pnpm desktop:build` builds for the current platform and writes bundles under `src-tauri/target/<target>/release/bundle/`. `pnpm desktop:build:all` triggers the [GitHub Actions packaging workflow](.github/workflows/package.yml), which builds Windows x64, macOS Apple Silicon, and macOS Intel packages in parallel. The command waits for completion and downloads every artifact into `release/<run-id>/`. The current branch must already exist on GitHub.
+`pnpm desktop:build` builds for the current platform and writes bundles under `src-tauri/target/release/bundle/` by default. When you pass `--target <target>`, bundles are written under `src-tauri/target/<target>/release/bundle/`. `pnpm desktop:build:all` triggers the [GitHub Actions packaging workflow](.github/workflows/package.yml), which builds Windows x64, macOS Apple Silicon, and macOS Intel packages in parallel. The command waits for completion and downloads every artifact into `release/<run-id>/`. The current branch must already exist on GitHub.
 
 Remote packages are intended for development validation: Windows packages are unsigned, macOS packages use ad-hoc signing without notarization, and automatic updates or online publishing are not configured.
 

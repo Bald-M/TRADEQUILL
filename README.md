@@ -72,7 +72,7 @@ pnpm desktop:build
 pnpm desktop:build:all
 ```
 
-`pnpm desktop:build` 在当前平台构建，产物位于 `src-tauri/target/<目标>/release/bundle/`。`pnpm desktop:build:all` 会触发 [GitHub Actions 打包工作流](.github/workflows/package.yml)，并行构建 Windows x64、macOS Apple Silicon 和 macOS Intel 安装包；命令会等待工作流完成，再将全部产物下载到 `release/<run-id>/`。当前分支必须已推送到 GitHub。
+`pnpm desktop:build` 在当前平台构建，默认将产物写入 `src-tauri/target/release/bundle/`；显式传入 `--target <目标>` 时，产物位于 `src-tauri/target/<目标>/release/bundle/`。`pnpm desktop:build:all` 会触发 [GitHub Actions 打包工作流](.github/workflows/package.yml)，并行构建 Windows x64、macOS Apple Silicon 和 macOS Intel 安装包；命令会等待工作流完成，再将全部产物下载到 `release/<run-id>/`。当前分支必须已推送到 GitHub。
 
 远端包用于开发验证：Windows 包尚未签名，macOS 包使用临时签名但尚未公证，也未配置自动更新或在线发布。
 
