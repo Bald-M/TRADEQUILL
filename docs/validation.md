@@ -34,7 +34,7 @@
 
 ### 自动验证
 
-- `pnpm test`：Vitest 通过 4 个测试文件、10 个测试，覆盖产品名归一化、询盘组合筛选、筛选后的详情一致性、筛选切换客户时关闭旧编辑器、编辑记录切换、跨日任务重分组、待办日期分组，以及客户表单校验和成功提交。
+- `pnpm test`：Vitest 通过 6 个测试文件、19 个测试，覆盖产品名归一化、询盘组合筛选、筛选后的详情一致性、筛选与编辑记录切换、表单及任务状态写入成功但刷新失败时的集成恢复和重复提交防护、跨日任务重分组、并发提醒检查合并、通知投递成功/失败时的去重语义、待办日期分组，以及客户表单校验和成功提交。
 - `pnpm typecheck`、`pnpm build`：TypeScript 检查与 Vite 生产构建通过。
 - `cargo test --manifest-path src-tauri/Cargo.toml`：6 个存储层测试通过，覆盖完整业务闭环与重复启动、跨客户引用拒绝、样品状态与日期约束、每日提醒去重、高版本 schema 拒绝降级。
 - `cargo fmt --manifest-path src-tauri/Cargo.toml --check`、`pnpm check:rust`：Rust 格式和 Clippy 全目标检查通过。

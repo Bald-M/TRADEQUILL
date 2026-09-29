@@ -82,10 +82,12 @@ function FormError({ message }: { message: string }) {
 
 function Actions({
   saving,
+  committed,
   submitLabel,
   onCancel,
 }: {
   saving: boolean;
+  committed: boolean;
   submitLabel: string;
   onCancel: () => void;
 }) {
@@ -99,14 +101,14 @@ function Actions({
       >
         取消
       </Button>
-      <Button type="submit" disabled={saving}>
+      <Button type="submit" disabled={saving || committed}>
         {saving && (
           <LoaderCircle
             className="animate-spin motion-reduce:animate-none"
             aria-hidden="true"
           />
         )}
-        {saving ? "保存中…" : submitLabel}
+        {committed ? "已保存" : saving ? "保存中…" : submitLabel}
       </Button>
     </div>
   );
@@ -114,6 +116,28 @@ function Actions({
 
 function messageOf(error: unknown) {
   return error instanceof Error ? error.message : String(error);
+}
+
+async function commitAndRefresh(
+  mutation: () => Promise<void>,
+  refresh: () => Promise<void> | void,
+  onCommitted: () => void,
+  showError: (message: string) => void,
+) {
+  try {
+    await mutation();
+  } catch (error) {
+    showError(messageOf(error));
+    return;
+  }
+  onCommitted();
+  try {
+    await refresh();
+  } catch (error) {
+    showError(
+      `数据已保存，但界面刷新失败：${messageOf(error)}。请关闭当前表单后重试刷新。`,
+    );
+  }
 }
 
 export function CustomerForm({
@@ -137,6 +161,7 @@ export function CustomerForm({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [serverError, setServerError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [committed, setCommitted] = useState(false);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -151,14 +176,13 @@ export function CustomerForm({
     }
     setSaving(true);
     setServerError("");
-    try {
-      await saveCustomer({ id: customer?.id ?? null, ...form });
-      await onSaved();
-    } catch (error) {
-      setServerError(messageOf(error));
-    } finally {
-      setSaving(false);
-    }
+    await commitAndRefresh(
+      () => saveCustomer({ id: customer?.id ?? null, ...form }),
+      onSaved,
+      () => setCommitted(true),
+      setServerError,
+    );
+    setSaving(false);
   }
 
   const set = (key: keyof typeof form, value: string) => {
@@ -251,6 +275,7 @@ export function CustomerForm({
       </Field>
       <Actions
         saving={saving}
+        committed={committed}
         submitLabel={customer ? "保存客户" : "创建客户"}
         onCancel={onCancel}
       />
@@ -280,6 +305,7 @@ export function InquiryForm({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [serverError, setServerError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [committed, setCommitted] = useState(false);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -297,23 +323,23 @@ export function InquiryForm({
     }
     setSaving(true);
     setServerError("");
-    try {
-      await saveInquiry({
-        id: inquiry?.id ?? null,
-        customerId: customer.id,
-        receivedOn: form.receivedOn,
-        content: form.content,
-        source: form.source,
-        country: form.country,
-        products: splitProducts(form.products),
-        stage: form.stage,
-      });
-      await onSaved();
-    } catch (submitError) {
-      setServerError(messageOf(submitError));
-    } finally {
-      setSaving(false);
-    }
+    await commitAndRefresh(
+      () =>
+        saveInquiry({
+          id: inquiry?.id ?? null,
+          customerId: customer.id,
+          receivedOn: form.receivedOn,
+          content: form.content,
+          source: form.source,
+          country: form.country,
+          products: splitProducts(form.products),
+          stage: form.stage,
+        }),
+      onSaved,
+      () => setCommitted(true),
+      setServerError,
+    );
+    setSaving(false);
   }
 
   const set = (key: keyof typeof form, value: string) => {
@@ -411,6 +437,7 @@ export function InquiryForm({
       </Field>
       <Actions
         saving={saving}
+        committed={committed}
         submitLabel={inquiry ? "保存询盘" : "归档询盘"}
         onCancel={onCancel}
       />
@@ -472,6 +499,7 @@ export function QuoteForm({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [serverError, setServerError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [committed, setCommitted] = useState(false);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -487,18 +515,18 @@ export function QuoteForm({
     }
     setSaving(true);
     setServerError("");
-    try {
-      await saveQuote({
-        id: quote?.id ?? null,
-        customerId: customer.id,
-        ...form,
-      });
-      await onSaved();
-    } catch (submitError) {
-      setServerError(messageOf(submitError));
-    } finally {
-      setSaving(false);
-    }
+    await commitAndRefresh(
+      () =>
+        saveQuote({
+          id: quote?.id ?? null,
+          customerId: customer.id,
+          ...form,
+        }),
+      onSaved,
+      () => setCommitted(true),
+      setServerError,
+    );
+    setSaving(false);
   }
 
   function set<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
@@ -591,6 +619,7 @@ export function QuoteForm({
       </Field>
       <Actions
         saving={saving}
+        committed={committed}
         submitLabel={quote ? "保存报价" : "记录报价"}
         onCancel={onCancel}
       />
@@ -621,6 +650,7 @@ export function SampleForm({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [serverError, setServerError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [committed, setCommitted] = useState(false);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -637,22 +667,22 @@ export function SampleForm({
     }
     setSaving(true);
     setServerError("");
-    try {
-      await saveSample({
-        id: sample?.id ?? null,
-        customerId: customer.id,
-        inquiryId: form.inquiryId,
-        product: form.product,
-        quantity,
-        requestedOn: form.requestedOn,
-        notes: form.notes,
-      });
-      await onSaved();
-    } catch (submitError) {
-      setServerError(messageOf(submitError));
-    } finally {
-      setSaving(false);
-    }
+    await commitAndRefresh(
+      () =>
+        saveSample({
+          id: sample?.id ?? null,
+          customerId: customer.id,
+          inquiryId: form.inquiryId,
+          product: form.product,
+          quantity,
+          requestedOn: form.requestedOn,
+          notes: form.notes,
+        }),
+      onSaved,
+      () => setCommitted(true),
+      setServerError,
+    );
+    setSaving(false);
   }
 
   function set<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
@@ -729,6 +759,7 @@ export function SampleForm({
       </Field>
       <Actions
         saving={saving}
+        committed={committed}
         submitLabel={sample ? "保存样品" : "创建样品"}
         onCancel={onCancel}
       />
@@ -758,6 +789,7 @@ export function TaskForm({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [serverError, setServerError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [committed, setCommitted] = useState(false);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -771,18 +803,18 @@ export function TaskForm({
     }
     setSaving(true);
     setServerError("");
-    try {
-      await saveFollowUpTask({
-        id: task?.id ?? null,
-        customerId: customer.id,
-        ...form,
-      });
-      await onSaved();
-    } catch (submitError) {
-      setServerError(messageOf(submitError));
-    } finally {
-      setSaving(false);
-    }
+    await commitAndRefresh(
+      () =>
+        saveFollowUpTask({
+          id: task?.id ?? null,
+          customerId: customer.id,
+          ...form,
+        }),
+      onSaved,
+      () => setCommitted(true),
+      setServerError,
+    );
+    setSaving(false);
   }
 
   function set<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
@@ -834,6 +866,7 @@ export function TaskForm({
       </Field>
       <Actions
         saving={saving}
+        committed={committed}
         submitLabel={task ? "保存改期" : "安排跟进"}
         onCancel={onCancel}
       />
@@ -854,6 +887,7 @@ export function SampleProgressForm({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [serverError, setServerError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [committed, setCommitted] = useState(false);
   const nextStages = sampleStages.filter(([value]) => {
     const transitions: Record<string, string[]> = {
       requested: ["preparing", "cancelled"],
@@ -877,19 +911,19 @@ export function SampleProgressForm({
     }
     setSaving(true);
     setServerError("");
-    try {
-      await appendSampleProgress({
-        sampleId: sample.id,
-        stage,
-        occurredOn,
-        notes,
-      });
-      await onSaved();
-    } catch (submitError) {
-      setServerError(messageOf(submitError));
-    } finally {
-      setSaving(false);
-    }
+    await commitAndRefresh(
+      () =>
+        appendSampleProgress({
+          sampleId: sample.id,
+          stage,
+          occurredOn,
+          notes,
+        }),
+      onSaved,
+      () => setCommitted(true),
+      setServerError,
+    );
+    setSaving(false);
   }
 
   return (
@@ -953,8 +987,8 @@ export function SampleProgressForm({
           />
         )}
       </Field>
-      <Button type="submit" size="sm" disabled={saving}>
-        {saving ? "更新中…" : "追加进度"}
+      <Button type="submit" size="sm" disabled={saving || committed}>
+        {committed ? "已更新" : saving ? "更新中…" : "追加进度"}
       </Button>
     </form>
   );
@@ -972,6 +1006,7 @@ export function ShipmentForm({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [serverError, setServerError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [committed, setCommitted] = useState(false);
   if (!["sent", "received", "completed"].includes(sample.currentStage))
     return null;
 
@@ -987,18 +1022,18 @@ export function ShipmentForm({
     }
     setSaving(true);
     setServerError("");
-    try {
-      await updateSampleShipment({
-        sampleId: sample.id,
-        carrier,
-        trackingNumber,
-      });
-      await onSaved();
-    } catch (submitError) {
-      setServerError(messageOf(submitError));
-    } finally {
-      setSaving(false);
-    }
+    await commitAndRefresh(
+      () =>
+        updateSampleShipment({
+          sampleId: sample.id,
+          carrier,
+          trackingNumber,
+        }),
+      onSaved,
+      () => setCommitted(true),
+      setServerError,
+    );
+    setSaving(false);
   }
 
   return (
@@ -1044,8 +1079,13 @@ export function ShipmentForm({
           )}
         </Field>
       </div>
-      <Button type="submit" size="sm" variant="outline" disabled={saving}>
-        {saving ? "保存中…" : "保存物流信息"}
+      <Button
+        type="submit"
+        size="sm"
+        variant="outline"
+        disabled={saving || committed}
+      >
+        {committed ? "已保存" : saving ? "保存中…" : "保存物流信息"}
       </Button>
     </form>
   );

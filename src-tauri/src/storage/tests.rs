@@ -1,5 +1,10 @@
 use super::*;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::{
+    sync::atomic::{AtomicU64, Ordering},
+    time::{SystemTime, UNIX_EPOCH},
+};
+
+static TEMP_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 
 struct TempData(PathBuf);
 
@@ -9,7 +14,11 @@ impl TempData {
             .duration_since(UNIX_EPOCH)
             .expect("system clock should be after epoch")
             .as_nanos();
-        Self(std::env::temp_dir().join(format!("tradequill-{unique}")))
+        let sequence = TEMP_SEQUENCE.fetch_add(1, Ordering::Relaxed);
+        Self(std::env::temp_dir().join(format!(
+            "tradequill-{}-{unique}-{sequence}",
+            std::process::id()
+        )))
     }
 }
 

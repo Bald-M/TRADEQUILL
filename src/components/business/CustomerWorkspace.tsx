@@ -74,6 +74,12 @@ export function CustomerWorkspace({
   const [editor, setEditor] = useState<Editor>(null);
   const [actionError, setActionError] = useState("");
   const [busyTask, setBusyTask] = useState<number | null>(null);
+  const [committedTask, setCommittedTask] = useState<{
+    id: number;
+    completed: boolean;
+  } | null>(null);
+  const [refreshFailed, setRefreshFailed] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const filtersActive = Object.values(filters).some(Boolean);
   const matchingInquiries = useMemo(
     () => filterInquiries(snapshot.inquiries, filters),
@@ -97,6 +103,21 @@ export function CustomerWorkspace({
     setSelectedId(customers[0]?.id ?? null);
     setEditor(null);
   }, [customers, selectedId]);
+
+  useEffect(() => {
+    if (
+      committedTask &&
+      snapshot.tasks.some(
+        (task) =>
+          task.id === committedTask.id &&
+          task.completed === committedTask.completed,
+      )
+    ) {
+      setCommittedTask(null);
+      setRefreshFailed(false);
+      setActionError("");
+    }
+  }, [committedTask, snapshot.tasks]);
 
   const customer = snapshot.customers.find((item) => item.id === selectedId);
   const allCustomerInquiries = snapshot.inquiries.filter(
@@ -127,13 +148,37 @@ export function CustomerWorkspace({
   async function toggleTask(taskId: number, completed: boolean) {
     setBusyTask(taskId);
     setActionError("");
+    setRefreshFailed(false);
     try {
       await setFollowUpTaskCompleted(taskId, completed);
-      await refresh();
     } catch (error) {
       setActionError(error instanceof Error ? error.message : String(error));
+      setBusyTask(null);
+      return;
+    }
+    setCommittedTask({ id: taskId, completed });
+    try {
+      await refresh();
+    } catch (error) {
+      setRefreshFailed(true);
+      setActionError(
+        `任务状态已更新，但界面刷新失败：${error instanceof Error ? error.message : String(error)}。`,
+      );
     } finally {
       setBusyTask(null);
+    }
+  }
+
+  async function retryRefresh() {
+    setRefreshing(true);
+    try {
+      await refresh();
+    } catch (error) {
+      setActionError(
+        `任务状态已更新，但界面刷新失败：${error instanceof Error ? error.message : String(error)}。`,
+      );
+    } finally {
+      setRefreshing(false);
     }
   }
 
@@ -422,7 +467,7 @@ export function CustomerWorkspace({
                       <InquiryForm
                         key={`inquiry-${editor.id ?? "new"}`}
                         customer={customer}
-                        inquiry={inquiries.find(
+                        inquiry={allCustomerInquiries.find(
                           (item) => item.id === editor.id,
                         )}
                         onSaved={saved}
@@ -636,12 +681,23 @@ export function CustomerWorkspace({
                   {section === "tasks" && (
                     <>
                       {actionError && (
-                        <p
+                        <div
                           role="alert"
-                          className="rounded-md bg-destructive/10 p-3 text-sm"
+                          className="flex items-center gap-3 rounded-md bg-destructive/10 p-3 text-sm"
                         >
-                          {actionError}
-                        </p>
+                          <p className="min-w-0 flex-1">{actionError}</p>
+                          {refreshFailed && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              disabled={refreshing}
+                              onClick={() => void retryRefresh()}
+                            >
+                              {refreshing ? "刷新中…" : "重试刷新"}
+                            </Button>
+                          )}
+                        </div>
                       )}
                       {tasks.length ? (
                         tasks.map((task) => (
@@ -655,7 +711,12 @@ export function CustomerWorkspace({
                               aria-label={
                                 task.completed ? "标记为未完成" : "标记为已完成"
                               }
-                              disabled={busyTask === task.id}
+                              disabled={
+                                busyTask === task.id ||
+                                refreshing ||
+                                refreshFailed ||
+                                committedTask?.id === task.id
+                              }
                               onClick={() =>
                                 toggleTask(task.id, !task.completed)
                               }

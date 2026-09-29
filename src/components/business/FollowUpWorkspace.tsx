@@ -45,6 +45,12 @@ export function FollowUpWorkspace({
   );
   const [busyTask, setBusyTask] = useState<number | null>(null);
   const [error, setError] = useState("");
+  const [committedTask, setCommittedTask] = useState<{
+    id: number;
+    completed: boolean;
+  } | null>(null);
+  const [refreshFailed, setRefreshFailed] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const groups = useMemo(
     () =>
       snapshot.tasks.reduce<Record<TaskBucket, FollowUpTaskRecord[]>>(
@@ -92,20 +98,59 @@ export function FollowUpWorkspace({
     };
   }, []);
 
+  useEffect(() => {
+    if (
+      committedTask &&
+      snapshot.tasks.some(
+        (task) =>
+          task.id === committedTask.id &&
+          task.completed === committedTask.completed,
+      )
+    ) {
+      setCommittedTask(null);
+      setRefreshFailed(false);
+      setError("");
+    }
+  }, [committedTask, snapshot.tasks]);
+
   async function toggle(task: FollowUpTaskRecord) {
     setBusyTask(task.id);
     setError("");
+    setRefreshFailed(false);
     try {
       await setFollowUpTaskCompleted(task.id, !task.completed);
-      await refresh();
     } catch (actionError) {
       setError(
         actionError instanceof Error
           ? actionError.message
           : String(actionError),
       );
+      setBusyTask(null);
+      return;
+    }
+    setCommittedTask({ id: task.id, completed: !task.completed });
+    try {
+      await refresh();
+    } catch (actionError) {
+      setRefreshFailed(true);
+      setError(
+        `任务状态已更新，但界面刷新失败：${actionError instanceof Error ? actionError.message : String(actionError)}。`,
+      );
     } finally {
       setBusyTask(null);
+    }
+  }
+
+  async function retryRefresh() {
+    setRefreshing(true);
+    try {
+      await refresh();
+    } catch (actionError) {
+      setError(
+        `任务状态已更新，但界面刷新失败：${actionError instanceof Error ? actionError.message : String(actionError)}。`,
+      );
+    } finally {
+      setRefreshing(false);
     }
   }
 
@@ -123,7 +168,12 @@ export function FollowUpWorkspace({
           variant={task.completed ? "secondary" : "outline"}
           size="icon"
           aria-label={task.completed ? "标记为未完成" : "标记为已完成"}
-          disabled={busyTask === task.id}
+          disabled={
+            busyTask === task.id ||
+            refreshing ||
+            refreshFailed ||
+            committedTask?.id === task.id
+          }
           onClick={() => toggle(task)}
         >
           <CheckCircle2 aria-hidden="true" />
@@ -165,9 +215,23 @@ export function FollowUpWorkspace({
         </div>
       )}
       {error && (
-        <p role="alert" className="rounded-lg bg-destructive/10 p-4 text-sm">
-          {error}
-        </p>
+        <div
+          role="alert"
+          className="flex items-center gap-3 rounded-lg bg-destructive/10 p-4 text-sm"
+        >
+          <p className="min-w-0 flex-1">{error}</p>
+          {refreshFailed && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={refreshing}
+              onClick={() => void retryRefresh()}
+            >
+              {refreshing ? "刷新中…" : "重试刷新"}
+            </Button>
+          )}
+        </div>
       )}
 
       <div className="grid gap-4 md:grid-cols-4">

@@ -70,10 +70,14 @@ function App() {
       const data = await getBusinessSnapshot();
       setBusiness({ kind: "ready", data });
     } catch (error) {
-      setBusiness({
-        kind: "error",
-        message: error instanceof Error ? error.message : String(error),
-      });
+      setBusiness((current) =>
+        current.kind === "ready"
+          ? current
+          : {
+              kind: "error",
+              message: error instanceof Error ? error.message : String(error),
+            },
+      );
       throw error;
     }
   }, []);

@@ -51,4 +51,20 @@ describe("CustomerForm", () => {
     );
     expect(onSaved).toHaveBeenCalledOnce();
   });
+
+  it("does not repeat a committed create when the following refresh fails", async () => {
+    const user = userEvent.setup();
+    const onSaved = vi.fn().mockRejectedValue(new Error("refresh failed"));
+    mockedSaveCustomer.mockResolvedValue();
+    render(<CustomerForm onSaved={onSaved} onCancel={vi.fn()} />);
+    await user.type(screen.getByLabelText("客户姓名 *"), "Alice");
+
+    await user.click(screen.getByRole("button", { name: "创建客户" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "refresh failed",
+    );
+
+    expect(mockedSaveCustomer).toHaveBeenCalledOnce();
+    expect(screen.getByRole("button", { name: "已保存" })).toBeDisabled();
+  });
 });

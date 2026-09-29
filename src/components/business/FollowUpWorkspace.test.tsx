@@ -1,13 +1,32 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { act, cleanup, render, screen, within } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { BusinessSnapshot } from "@/lib/business";
+import {
+  setFollowUpTaskCompleted,
+  type BusinessSnapshot,
+} from "@/lib/business";
 import { FollowUpWorkspace } from "./FollowUpWorkspace";
+
+vi.mock("@/lib/business", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/business")>();
+  return { ...actual, setFollowUpTaskCompleted: vi.fn() };
+});
+
+const mockedSetFollowUpTaskCompleted = vi.mocked(setFollowUpTaskCompleted);
 
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
+  mockedSetFollowUpTaskCompleted.mockReset();
 });
 
 const snapshot: BusinessSnapshot = {
@@ -70,5 +89,33 @@ describe("FollowUpWorkspace", () => {
     expect(
       within(todayCard!).getByText("Cross-day follow-up"),
     ).toBeInTheDocument();
+  });
+
+  it("offers refresh recovery after a task status write commits", async () => {
+    const refresh = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("refresh failed"))
+      .mockResolvedValueOnce(undefined);
+    mockedSetFollowUpTaskCompleted.mockResolvedValue();
+    render(
+      <FollowUpWorkspace
+        snapshot={snapshot}
+        refresh={refresh}
+        reminderMessage=""
+        openCustomers={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "标记为已完成" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "任务状态已更新，但界面刷新失败：refresh failed",
+    );
+    expect(mockedSetFollowUpTaskCompleted).toHaveBeenCalledOnce();
+    expect(screen.getByRole("button", { name: "标记为已完成" })).toBeDisabled();
+
+    fireEvent.click(screen.getByRole("button", { name: "重试刷新" }));
+    await waitFor(() => expect(refresh).toHaveBeenCalledTimes(2));
+    expect(mockedSetFollowUpTaskCompleted).toHaveBeenCalledOnce();
   });
 });

@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import {
   isPermissionGranted,
   requestPermission,
-  sendNotification,
 } from "@tauri-apps/plugin-notification";
 import {
   getDueReminder,
@@ -14,12 +14,14 @@ import {
 export function useDailyReminder(enabled: boolean) {
   const [message, setMessage] = useState("");
   const attemptedDate = useRef("");
+  const checkingDate = useRef("");
 
   const check = useCallback(async () => {
     if (!enabled) return;
     const now = new Date();
     const date = localDateValue(now);
-    if (attemptedDate.current === date) return;
+    if (attemptedDate.current === date || checkingDate.current === date) return;
+    checkingDate.current = date;
     try {
       const reminder = await getDueReminder(date, localDateTimeValue(now));
       if (!reminder) return;
@@ -32,9 +34,11 @@ export function useDailyReminder(enabled: boolean) {
         );
         return;
       }
-      sendNotification({
-        title: "TradeQuill 跟进提醒",
-        body: `今日 ${reminder.dueToday} 项待办，另有 ${reminder.overdue} 项逾期未完成。`,
+      await invoke("plugin:notification|notify", {
+        options: {
+          title: "TradeQuill 跟进提醒",
+          body: `今日 ${reminder.dueToday} 项待办，另有 ${reminder.overdue} 项逾期未完成。`,
+        },
       });
       await markReminderSent(reminder.localDate);
       setMessage(
@@ -45,6 +49,8 @@ export function useDailyReminder(enabled: boolean) {
       setMessage(
         `系统提醒发送失败：${error instanceof Error ? error.message : String(error)}。应用内待办仍可使用。`,
       );
+    } finally {
+      if (checkingDate.current === date) checkingDate.current = "";
     }
   }, [enabled]);
 
