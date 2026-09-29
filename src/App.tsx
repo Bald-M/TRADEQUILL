@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   ArrowRight,
   BriefcaseBusiness,
@@ -26,7 +26,16 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { CustomerWorkspace } from "@/components/business/CustomerWorkspace";
+import { FollowUpWorkspace } from "@/components/business/FollowUpWorkspace";
 import { useTheme } from "@/hooks/use-theme";
+import { useDailyReminder } from "@/hooks/use-daily-reminder";
+import {
+  getBusinessSnapshot,
+  taskBucket,
+  localDateValue,
+  type BusinessSnapshot,
+} from "@/lib/business";
 import { getWorkspaceStatus, type WorkspaceStatus } from "@/lib/workspace";
 import "./App.css";
 
@@ -42,13 +51,36 @@ type StorageState =
   | { kind: "loading" }
   | { kind: "ready"; data: WorkspaceStatus }
   | { kind: "error"; message: string };
+type BusinessState =
+  | { kind: "idle" | "loading" }
+  | { kind: "ready"; data: BusinessSnapshot }
+  | { kind: "error"; message: string };
 
 function App() {
   const [page, setPage] = useState<Page>("overview");
   const [storage, setStorage] = useState<StorageState>({ kind: "loading" });
+  const [business, setBusiness] = useState<BusinessState>({ kind: "idle" });
   const [attempt, setAttempt] = useState(0);
   const { dark, toggleTheme } = useTheme();
   const activePage = pages.find((item) => item.id === page)!;
+  const reminderMessage = useDailyReminder(storage.kind === "ready");
+
+  const refreshBusiness = useCallback(async () => {
+    try {
+      const data = await getBusinessSnapshot();
+      setBusiness({ kind: "ready", data });
+    } catch (error) {
+      setBusiness((current) =>
+        current.kind === "ready"
+          ? current
+          : {
+              kind: "error",
+              message: error instanceof Error ? error.message : String(error),
+            },
+      );
+      throw error;
+    }
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -68,6 +100,15 @@ function App() {
       cancelled = true;
     };
   }, [attempt]);
+
+  useEffect(() => {
+    if (storage.kind !== "ready") {
+      setBusiness({ kind: "idle" });
+      return;
+    }
+    setBusiness({ kind: "loading" });
+    void refreshBusiness().catch(() => undefined);
+  }, [refreshBusiness, storage.kind]);
 
   const retry = () => {
     setStorage({ kind: "loading" });
@@ -165,8 +206,12 @@ function App() {
             </h1>
             <p className="mt-3 text-sm leading-6 text-muted-foreground">
               {page === "overview"
-                ? "从这里开始，逐步建立属于你的客户与业务工作空间。"
-                : "一个专注、轻量的本地外贸工作空间。"}
+                ? "统一整理客户、询盘、报价、样品与下一步跟进。"
+                : page === "customers"
+                  ? "围绕客户卡片归档每一次业务往来。"
+                  : page === "business"
+                    ? "集中查看今日、逾期与日历中的跟进任务。"
+                    : "一个专注、轻量的本地外贸工作空间。"}
             </p>
           </div>
 
@@ -198,19 +243,44 @@ function App() {
             </div>
           )}
 
+          {storage.kind === "ready" && business.kind === "error" && (
+            <div
+              role="alert"
+              className="flex items-center gap-3 rounded-lg border bg-destructive/10 p-4 text-sm"
+            >
+              <Database className="size-4 shrink-0" aria-hidden="true" />
+              <p className="min-w-0 flex-1 break-words">
+                无法读取业务数据：{business.message}
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => void refreshBusiness().catch(() => undefined)}
+              >
+                <RefreshCw aria-hidden="true" /> 重试
+              </Button>
+            </div>
+          )}
+
           {page === "overview" && (
             <>
               <div className="grid gap-4 xl:grid-cols-3">
                 {[
                   {
                     title: "客户关系",
-                    text: "集中整理客户资料与每一次沟通。",
+                    text:
+                      business.kind === "ready"
+                        ? `${business.data.customers.length} 位客户 · ${business.data.inquiries.length} 条询盘`
+                        : "集中整理客户资料与每一次沟通。",
                     icon: Users,
                     target: "customers" as Page,
                   },
                   {
                     title: "业务进展",
-                    text: "为商机、报价与跟进建立清晰的脉络。",
+                    text:
+                      business.kind === "ready"
+                        ? `${business.data.quotes.length} 条报价 · ${business.data.samples.length} 份样品`
+                        : "为报价、样品与跟进建立清晰脉络。",
                     icon: BriefcaseBusiness,
                     target: "business" as Page,
                   },
@@ -249,10 +319,10 @@ function App() {
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <CardTitle>工作空间已起步</CardTitle>
-                    <Badge variant="secondary">基础框架</Badge>
+                    <Badge variant="secondary">本地业务工作台</Badge>
                   </div>
                   <CardDescription>
-                    桌面基础设施已接入，业务能力将逐步完善。
+                    客户主线已接入本地 SQLite，数据只经明确的桌面命令访问。
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-5">
@@ -261,7 +331,7 @@ function App() {
                       "独立桌面窗口",
                       "浅色与深色主题",
                       "本地数据库连接",
-                      "模块导航与统一组件",
+                      "客户与业务主线",
                     ].map((label) => (
                       <div
                         key={label}
@@ -291,33 +361,63 @@ function App() {
                   </div>
                   <Separator />
                   <p className="text-sm leading-6 text-muted-foreground">
-                    当前尚未创建业务记录。客户录入、商机流转、导入导出和完整备份将在后续版本实现。
+                    {business.kind === "ready"
+                      ? (() => {
+                          const today = localDateValue();
+                          const todayCount = business.data.tasks.filter(
+                            (task) => taskBucket(task, today) === "today",
+                          ).length;
+                          const overdueCount = business.data.tasks.filter(
+                            (task) => taskBucket(task, today) === "overdue",
+                          ).length;
+                          return `今日有 ${todayCount} 项待办，另有 ${overdueCount} 项逾期未完成。数据导入导出与完整备份仍在规划中。`;
+                        })()
+                      : "正在读取客户与业务记录。数据导入导出与完整备份仍在规划中。"}
                   </p>
                 </CardContent>
               </Card>
             </>
           )}
 
-          {(page === "customers" || page === "business" || page === "data") && (
+          {(page === "customers" || page === "business") &&
+            business.kind === "loading" && (
+              <Card className="shadow-none">
+                <CardContent className="flex min-h-64 items-center justify-center gap-3 text-sm text-muted-foreground">
+                  <LoaderCircle
+                    className="size-4 animate-spin motion-reduce:animate-none"
+                    aria-hidden="true"
+                  />
+                  正在读取业务记录…
+                </CardContent>
+              </Card>
+            )}
+
+          {page === "customers" && business.kind === "ready" && (
+            <CustomerWorkspace
+              snapshot={business.data}
+              refresh={refreshBusiness}
+            />
+          )}
+
+          {page === "business" && business.kind === "ready" && (
+            <FollowUpWorkspace
+              snapshot={business.data}
+              refresh={refreshBusiness}
+              reminderMessage={reminderMessage}
+              openCustomers={() => setPage("customers")}
+            />
+          )}
+
+          {page === "data" && (
             <Card className="shadow-none">
               <CardContent className="flex min-h-80 flex-col items-center justify-center p-10 text-center">
                 <activePage.icon
                   className="mb-5 size-9 text-muted-foreground"
                   aria-hidden="true"
                 />
-                <h2 className="text-lg font-medium">
-                  {page === "customers"
-                    ? "客户资料，从这里开始"
-                    : page === "business"
-                      ? "为下一笔业务，留好位置"
-                      : "数据管理，即将就绪"}
-                </h2>
+                <h2 className="text-lg font-medium">数据管理，即将就绪</h2>
                 <p className="mt-3 max-w-md text-sm leading-7 text-muted-foreground">
-                  {page === "customers"
-                    ? "客户与联系人模块尚未实现。后续将在这里添加客户档案、标签和跟进记录。"
-                    : page === "business"
-                      ? "业务模块尚未实现。后续将在这里管理商机阶段、报价记录与跟进任务。"
-                      : "导入、导出与完整备份尚未实现。业务表格与包含附件的完整备份将分别提供。"}
+                  导入、导出与完整备份尚未实现。业务表格与包含附件的完整备份将分别提供。
                 </p>
                 <Badge variant="outline" className="mt-5">
                   规划中

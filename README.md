@@ -38,9 +38,9 @@
 
 ## 当前范围
 
-这是可继续开发的基础框架，包含 Tauri 2、React、TypeScript、Vite、Tailwind CSS 4、shadcn/ui（Radix）、主题切换、模块导航及 Rust + SQLite 初始化。
+TradeQuill 已提供第一条本地业务主线：客户档案、询盘统一归档与四维组合筛选、报价历史、样品进度历史，以及跟进日历、今日/逾期待办和每日系统提醒。完整规则见 [客户与跟进工作流](docs/customer-workflow.md)。
 
-客户管理、业务管理、导入导出、完整备份目前是明确标注的占位页面，尚无业务 CRUD。第一版不接入 AI、云端同步、遥测或远程字体。不需要数据库服务器。
+数据导入导出和完整备份仍是明确标注的占位能力。第一版不接入 AI、云端同步、遥测或远程字体，不需要数据库服务器；完全退出应用后不会在后台发送提醒。
 
 ## 开发环境
 
@@ -86,11 +86,12 @@ pnpm exec shadcn add input dialog table
 
 ## 项目结构
 
-- `src/App.tsx`：桌面导航、首页、业务模块空状态、设置。
+- `src/App.tsx`：桌面导航、首页、业务状态加载与设置。
+- `src/components/business/`：客户卡片、询盘/报价/样品表单、跟进待办与日历界面。
 - `src/components/ui/`：shadcn 组件源代码，可以按项目需要维护。
 - `src/hooks/`：界面状态逻辑。
-- `src/lib/workspace.ts`：类型明确的 Tauri IPC 边界，浏览器预览不伪造数据库状态。
-- `src-tauri/src/storage.rs`：应用目录和 SQLite schema 初始化。
+- `src/lib/workspace.ts` 与 `src/lib/business.ts`：类型明确的 Tauri IPC 边界，浏览器预览不伪造数据库状态。
+- `src-tauri/src/storage.rs`：应用目录、SQLite 事务迁移、业务校验和持久化。
 - `src-tauri/src/lib.rs`：异步桌面命令，磁盘操作在阻塞任务池执行。
 - `.github/workflows/package.yml`：Windows/macOS 安装包矩阵构建与产物上传。
 - `scripts/build-desktop-all.mjs`：触发远端打包、等待结果并下载全部产物。
@@ -103,7 +104,7 @@ Tauri 按 `com.tradequill.desktop` 标识确定应用数据目录，设置页显
 - macOS：`~/Library/Application Support/com.tradequill.desktop/`。
 - Windows：`%APPDATA%/com.tradequill.desktop/`。
 
-目录内包含 `tradequill.sqlite3` 和 `attachments/`。首个 schema 仅有应用元数据，不提前固化客户/业务模型。迁移通过事务和 `PRAGMA user_version` 控制；高于当前支持版本的数据会被拒绝，不做降级覆盖。再次启动不会清空数据。当前数据库没有应用层加密。
+目录内包含 `tradequill.sqlite3` 和 `attachments/`。schema 2 保存客户、询盘、报价、样品进度、跟进任务和每日提醒去重记录。迁移通过事务和 `PRAGMA user_version` 控制；高于当前支持版本的数据会被拒绝，不做降级覆盖。再次启动不会清空数据。当前数据库没有应用层加密。
 
 主题偏好存于本机 WebView localStorage，业务数据只经 Rust 访问 SQLite。暂时手动备份时先完全退出应用，再复制整个应用数据目录；以后实现的 CSV/Excel 导出不会替代包含附件的完整备份。
 
