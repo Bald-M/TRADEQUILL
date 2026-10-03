@@ -38,7 +38,7 @@
 
 ## 当前范围
 
-TradeQuill 已提供第一条本地业务主线：客户档案、询盘统一归档与四维组合筛选、报价历史、样品进度历史，以及跟进日历、今日/逾期待办和每日系统提醒。完整规则见 [客户与跟进工作流](docs/customer-workflow.md)。
+TradeQuill 已提供第一条本地业务主线：客户档案、询盘统一归档与四维组合筛选、报价历史、样品进度历史，以及跟进日历、今日/逾期待办和每日系统提醒。新增产品与供应商档案、选品生成版本化报价/PDF、报价转订单、成本利润和期间统计。完整规则见 [客户与跟进工作流](docs/customer-workflow.md) 与 [交易业务工作流](docs/commerce-workflow.md)。
 
 数据导入导出和完整备份仍是明确标注的占位能力。第一版不接入 AI、云端同步、遥测或远程字体，不需要数据库服务器；完全退出应用后不会在后台发送提醒。
 
@@ -92,6 +92,8 @@ pnpm exec shadcn add input dialog table
 - `src/hooks/`：界面状态逻辑。
 - `src/lib/workspace.ts` 与 `src/lib/business.ts`：类型明确的 Tauri IPC 边界，浏览器预览不伪造数据库状态。
 - `src-tauri/src/storage.rs`：应用目录、SQLite 事务迁移、业务校验和持久化。
+- `src-tauri/src/storage/commerce/`：产品、报价、订单、定点计算与统计。
+- `src-tauri/src/quote_pdf.rs`：从交易快照生成离线中文/英文 PDF。
 - `src-tauri/src/lib.rs`：异步桌面命令，磁盘操作在阻塞任务池执行。
 - `.github/workflows/package.yml`：Windows/macOS 安装包矩阵构建与产物上传。
 - `scripts/build-desktop-all.mjs`：触发远端打包、等待结果并下载全部产物。
@@ -104,7 +106,7 @@ Tauri 按 `com.tradequill.desktop` 标识确定应用数据目录，设置页显
 - macOS：`~/Library/Application Support/com.tradequill.desktop/`。
 - Windows：`%APPDATA%/com.tradequill.desktop/`。
 
-目录内包含 `tradequill.sqlite3` 和 `attachments/`。schema 2 保存客户、询盘、报价、样品进度、跟进任务和每日提醒去重记录。迁移通过事务和 `PRAGMA user_version` 控制；高于当前支持版本的数据会被拒绝，不做降级覆盖。再次启动不会清空数据。当前数据库没有应用层加密。
+目录内包含 `tradequill.sqlite3` 和 `attachments/`。schema 3 保存客户、询盘、报价、样品进度、跟进任务、每日提醒去重记录，以及产品、供应商、供货资料、报价版本和订单成本历史。迁移通过事务和 `PRAGMA user_version` 控制；高于当前支持版本的数据会被拒绝，不做降级覆盖。再次启动不会清空数据。当前数据库没有应用层加密。
 
 主题偏好存于本机 WebView localStorage，业务数据只经 Rust 访问 SQLite。暂时手动备份时先完全退出应用，再复制整个应用数据目录；以后实现的 CSV/Excel 导出不会替代包含附件的完整备份。
 

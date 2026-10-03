@@ -38,7 +38,7 @@
 
 ## Current scope
 
-TradeQuill now provides its first complete local workflow: customer records, inquiry capture with four-dimensional combined filtering, quote history, sample progress history, follow-up calendar, today/overdue lists, and a daily system reminder. The detailed behavior is documented in [the customer workflow](docs/customer-workflow.md) (Chinese).
+TradeQuill now provides its first complete local workflow: customer records, inquiry capture with four-dimensional combined filtering, quote history, sample progress history, follow-up calendar, today/overdue lists, and a daily system reminder. The trading workspace adds product/supplier catalogs, versioned quotations and offline bilingual PDFs, quote-to-order conversion, cost/profit calculations and period reports. Rules are documented in [the customer workflow](docs/customer-workflow.md) and [the trading workflow](docs/commerce-workflow.md) (Chinese).
 
 Data import/export and full backups remain clearly labeled placeholders. The first version does not integrate AI, cloud synchronization, telemetry, or remote fonts, and it requires no database server. The app does not run in the background after it is fully closed, so reminders are recalculated when it is opened again.
 
@@ -92,6 +92,8 @@ pnpm exec shadcn add input dialog table
 - `src/hooks/`: interface state logic.
 - `src/lib/workspace.ts` and `src/lib/business.ts`: typed Tauri IPC boundaries; browser previews do not simulate a successful database connection.
 - `src-tauri/src/storage.rs`: application directory, transactional SQLite migrations, business validation, and persistence.
+- `src-tauri/src/storage/commerce/`: catalogs, quotation revisions, orders, fixed-point calculations and reports.
+- `src-tauri/src/quote_pdf.rs`: offline bilingual PDF generation from saved snapshots.
 - `src-tauri/src/lib.rs`: asynchronous desktop commands, with disk operations handled by the blocking task pool.
 - `.github/workflows/package.yml`: matrix builds and artifact uploads for Windows/macOS installers.
 - `scripts/build-desktop-all.mjs`: triggers remote packaging, waits for completion, and downloads every artifact.
@@ -104,7 +106,7 @@ Tauri uses the `com.tradequill.desktop` identifier to determine the application 
 - macOS: `~/Library/Application Support/com.tradequill.desktop/`.
 - Windows: `%APPDATA%/com.tradequill.desktop/`.
 
-The directory contains `tradequill.sqlite3` and `attachments/`. Schema 2 stores customers, inquiries, quotes, sample progress, follow-up tasks, and daily reminder deduplication records. Migrations use transactions and `PRAGMA user_version`; data with a schema version newer than the application supports is rejected rather than overwritten or downgraded. Restarting the application does not clear existing data. The database currently has no application-level encryption.
+The directory contains `tradequill.sqlite3` and `attachments/`. Schema 3 stores customers, inquiries, quotation revisions, sample progress, follow-up tasks, daily reminder deduplication records, products, suppliers, supply references, and orders with cost and audit snapshots. Migrations use transactions and `PRAGMA user_version`; data with a schema version newer than the application supports is rejected rather than overwritten or downgraded. Restarting the application does not clear existing data. The database currently has no application-level encryption.
 
 Theme preferences are stored in the local WebView's localStorage. Business data is accessed in SQLite only through Rust. For a temporary manual backup, fully exit the application and then copy the entire application data directory. Future CSV/Excel exports will not replace a full backup that includes attachments.
 

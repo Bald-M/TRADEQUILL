@@ -55,7 +55,7 @@ fn migrates_and_persists_complete_customer_workflow() {
         initialize(root.0.clone())
             .expect("initialize")
             .schema_version,
-        2
+        SCHEMA_VERSION
     );
     save_customer(root.0.clone(), customer("Alice")).expect("customer");
     let customer_id = first_customer_id(&root);
@@ -158,7 +158,7 @@ fn migrates_and_persists_complete_customer_workflow() {
         initialize(root.0.clone())
             .expect("reinitialize")
             .schema_version,
-        2
+        SCHEMA_VERSION
     );
     assert_eq!(
         business_snapshot(root.0.clone())
@@ -491,3 +491,5 @@ fn failed_migration_rolls_back_schema_and_allows_retry() {
         SCHEMA_VERSION
     );
 }
+
+mod commerce;
