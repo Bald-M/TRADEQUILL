@@ -37,6 +37,12 @@ import {
   type BusinessSnapshot,
 } from "@/lib/business";
 import { getWorkspaceStatus, type WorkspaceStatus } from "@/lib/workspace";
+import { CommerceWorkspace } from "@/components/commerce/CommerceWorkspace";
+import {
+  getCommerceSnapshot,
+  type CommerceSnapshot,
+  type CommerceRoute,
+} from "@/lib/commerce";
 import "./App.css";
 
 const pages = [
@@ -61,6 +67,34 @@ function App() {
   const [storage, setStorage] = useState<StorageState>({ kind: "loading" });
   const [business, setBusiness] = useState<BusinessState>({ kind: "idle" });
   const [attempt, setAttempt] = useState(0);
+  const [businessSection, setBusinessSection] = useState<
+    "followups" | "commerce"
+  >("followups");
+  const [commerceRoute, setCommerceRoute] = useState<CommerceRoute>({
+    kind: "products",
+  });
+  const [commerce, setCommerce] = useState<CommerceSnapshot | null>(null);
+  const [commerceError, setCommerceError] = useState("");
+  const [commerceLoading, setCommerceLoading] = useState(false);
+  const refreshCommerce = useCallback(async () => {
+    setCommerceLoading(true);
+    try {
+      const data = await getCommerceSnapshot();
+      setCommerce(data);
+      setCommerceError("");
+    } catch (error) {
+      setCommerceError(error instanceof Error ? error.message : String(error));
+      throw error;
+    } finally {
+      setCommerceLoading(false);
+    }
+  }, []);
+  const openCommerce = (route: CommerceRoute) => {
+    setCommerceRoute(route);
+    setBusinessSection("commerce");
+    setPage("business");
+  };
+
   const { dark, toggleTheme } = useTheme();
   const activePage = pages.find((item) => item.id === page)!;
   const reminderMessage = useDailyReminder(storage.kind === "ready");
@@ -109,6 +143,18 @@ function App() {
     setBusiness({ kind: "loading" });
     void refreshBusiness().catch(() => undefined);
   }, [refreshBusiness, storage.kind]);
+
+  useEffect(() => {
+    if (storage.kind !== "ready") {
+      setCommerce(null);
+      return;
+    }
+    void refreshCommerce().catch(() => undefined);
+  }, [storage.kind, refreshCommerce]);
+
+  const refreshAll = async () => {
+    await Promise.all([refreshBusiness(), refreshCommerce()]);
+  };
 
   const retry = () => {
     setStorage({ kind: "loading" });
@@ -210,7 +256,7 @@ function App() {
                 : page === "customers"
                   ? "围绕客户卡片归档每一次业务往来。"
                   : page === "business"
-                    ? "集中查看今日、逾期与日历中的跟进任务。"
+                    ? "维护产品、供应商、报价、订单与经营测算，安排后续跟进。"
                     : "一个专注、轻量的本地外贸工作空间。"}
             </p>
           </div>
@@ -395,17 +441,82 @@ function App() {
           {page === "customers" && business.kind === "ready" && (
             <CustomerWorkspace
               snapshot={business.data}
-              refresh={refreshBusiness}
+              refresh={refreshAll}
+              commerce={commerce ?? undefined}
+              openCommerce={openCommerce}
             />
           )}
 
           {page === "business" && business.kind === "ready" && (
-            <FollowUpWorkspace
-              snapshot={business.data}
-              refresh={refreshBusiness}
-              reminderMessage={reminderMessage}
-              openCustomers={() => setPage("customers")}
-            />
+            <div className="space-y-5">
+              <nav aria-label="业务工作区" className="flex flex-wrap gap-2">
+                <Button
+                  variant={
+                    businessSection === "followups" ? "default" : "outline"
+                  }
+                  aria-current={
+                    businessSection === "followups" ? "page" : undefined
+                  }
+                  onClick={() => setBusinessSection("followups")}
+                >
+                  跟进日历
+                </Button>
+                <Button
+                  variant={
+                    businessSection === "commerce" ? "default" : "outline"
+                  }
+                  aria-current={
+                    businessSection === "commerce" ? "page" : undefined
+                  }
+                  onClick={() => setBusinessSection("commerce")}
+                >
+                  产品、报价与订单
+                </Button>
+              </nav>
+              {businessSection === "followups" ? (
+                <FollowUpWorkspace
+                  snapshot={business.data}
+                  refresh={refreshBusiness}
+                  reminderMessage={reminderMessage}
+                  openCustomers={() => setPage("customers")}
+                />
+              ) : (
+                <>
+                  {commerceError && (
+                    <div
+                      role="alert"
+                      className="space-y-3 rounded-lg border bg-destructive/10 p-4 text-sm"
+                    >
+                      <p>
+                        交易数据刷新失败：{commerceError}
+                        。已显示的记录可能不是最新结果。
+                      </p>
+                      <Button
+                        variant="outline"
+                        disabled={commerceLoading}
+                        onClick={() => void refreshAll().catch(() => undefined)}
+                      >
+                        重试刷新交易数据
+                      </Button>
+                    </div>
+                  )}
+                  {!commerce && commerceLoading && (
+                    <p role="status" className="text-sm">
+                      正在读取产品、报价与订单…
+                    </p>
+                  )}
+                  {commerce && (
+                    <CommerceWorkspace
+                      snapshot={commerce}
+                      business={business.data}
+                      refresh={refreshAll}
+                      route={commerceRoute}
+                      navigate={openCommerce}
+                    />
+                  )}
+                </>
+              )}
+            </div>
           )}
 
           {page === "data" && (

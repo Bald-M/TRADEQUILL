@@ -3,7 +3,9 @@ use rusqlite::{params, Connection, OptionalExtension, Transaction, TransactionBe
 use serde::{Deserialize, Serialize};
 use std::{fs, path::PathBuf, time::Duration};
 
-const SCHEMA_VERSION: i64 = 2;
+pub mod commerce;
+
+const SCHEMA_VERSION: i64 = 3;
 const FOLLOW_UP_STAGES: [&str; 6] = ["new", "contacted", "quoted", "sampling", "won", "paused"];
 const SAMPLE_STAGES: [&str; 6] = [
     "requested",
@@ -315,6 +317,9 @@ pub fn initialize(data_dir: PathBuf) -> Result<WorkspaceStatus, String> {
                  PRAGMA user_version = 2;",
             )?;
         }
+        if version <= 2 {
+            transaction.execute_batch(include_str!("storage/commerce/schema.sql"))?;
+        }
         transaction.commit()?;
         Ok(WorkspaceStatus {
             database_path: database_path.to_string_lossy().into_owned(),
@@ -561,6 +566,16 @@ pub fn save_quote(data_dir: PathBuf, input: QuoteInput) -> Result<(), String> {
         .map_err(|error| error.to_string())?;
     valid_inquiry_relation(&transaction, input.customer_id, input.inquiry_id)?;
     if let Some(id) = input.id {
+        let structured: bool = transaction
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM quote_versions WHERE quote_id=?1)",
+                [id],
+                |row| row.get(0),
+            )
+            .map_err(|error| error.to_string())?;
+        if structured {
+            return Err("结构化报价请创建新修订，不能覆盖历史版本。".into());
+        }
         let changed = transaction
             .execute(
                 "UPDATE quote_records SET inquiry_id=?1, quoted_on=?2, content=?3, amount_minor=?4,

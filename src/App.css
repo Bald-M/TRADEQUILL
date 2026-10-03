@@ -131,7 +131,8 @@
 @layer base {
   body {
     margin: 0;
-    min-width: 900px;
+    /* Tauri enforces the 900px window minimum. Leave room for native scrollbars. */
+    min-width: 0;
   }
   button:not(:disabled) {
     cursor: pointer;
