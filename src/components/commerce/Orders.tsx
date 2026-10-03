@@ -341,7 +341,7 @@ function StatusForm({
       <OrderConflictReview
         order={order}
         version={version}
-        mode="status"
+        mode={status === "confirmed" ? "draft" : "status"}
         accept={setVersion}
       />
       <p className="text-sm leading-6">
