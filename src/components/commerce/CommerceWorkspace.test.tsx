@@ -300,6 +300,39 @@ const order: Order = {
   },
 };
 describe("review regressions", () => {
+  it("shows report loading until IPC completes without displaying stale totals", async () => {
+    let resolve!: (value: OrderReport) => void;
+    vi.mocked(getOrderReport).mockReturnValue(
+      new Promise<OrderReport>((r) => {
+        resolve = r;
+      }),
+    );
+    render(
+      <CommerceWorkspace
+        snapshot={snapshot}
+        business={business}
+        refresh={vi.fn()}
+        route={{ kind: "reports" }}
+        navigate={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("status")).toHaveTextContent("正在计算经营统计");
+    expect(screen.queryByText(/销售收入/)).not.toBeInTheDocument();
+    resolve({
+      from: "2026-10-01",
+      through: "2026-10-04",
+      includedCount: 0,
+      incompleteCount: 0,
+      missingRateCount: 0,
+      currencies: [],
+      orders: [],
+    });
+    expect(
+      await screen.findByText("所选期间与客户没有已确认订单。"),
+    ).toBeVisible();
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  });
+
   it.each([
     ["products", false],
     ["products", true],
