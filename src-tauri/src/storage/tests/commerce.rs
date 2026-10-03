@@ -356,6 +356,64 @@ fn quote_revisions_keep_snapshots_and_legacy_records_without_fabrication() {
 }
 
 #[test]
+fn legacy_conversion_is_single_family_even_for_concurrent_distinct_requests() {
+    let root = seeded();
+    let p = save_product(
+        root.0.clone(),
+        ProductInput {
+            id: None,
+            data: product("W-1"),
+        },
+    )
+    .unwrap();
+    let barrier = std::sync::Arc::new(std::sync::Barrier::new(2));
+    let workers: Vec<_> = (0..2)
+        .map(|index| {
+            let path = root.0.clone();
+            let barrier = barrier.clone();
+            std::thread::spawn(move || {
+                let key = format!("legacy-{index}");
+                let mut input = quotation(p, &key);
+                input.previous_quote_id = Some(31);
+                barrier.wait();
+                (key, save_structured_quote(path, input))
+            })
+        })
+        .collect();
+    let results: Vec<_> = workers
+        .into_iter()
+        .map(|worker| worker.join().unwrap())
+        .collect();
+    assert_eq!(
+        results.iter().filter(|(_, result)| result.is_ok()).count(),
+        1
+    );
+    assert!(results
+        .iter()
+        .find_map(|(_, result)| result.as_ref().err())
+        .unwrap()
+        .contains("已补齐"));
+    let (key, id) = results
+        .iter()
+        .find_map(|(key, result)| result.as_ref().ok().map(|id| (key, *id)))
+        .unwrap();
+    let mut retry = quotation(p, key);
+    retry.previous_quote_id = Some(31);
+    assert_eq!(save_structured_quote(root.0.clone(), retry).unwrap(), id);
+    let connection = open(root.0.clone()).unwrap();
+    let count: i64 = connection
+        .query_row("SELECT COUNT(*) FROM quote_series", [], |row| row.get(0))
+        .unwrap();
+    assert_eq!(count, 1);
+    assert_eq!(commerce_snapshot(root.0.clone()).unwrap().quotes.len(), 1);
+    let order_id = create_order(root.0.clone(), id, "2026-10-03".into()).unwrap();
+    assert_eq!(
+        create_order(root.0.clone(), id, "2026-10-03".into()).unwrap(),
+        order_id
+    );
+}
+
+#[test]
 fn failed_quote_leaves_no_partial_series_or_rows_and_retry_is_idempotent() {
     let root = seeded();
     let p = save_product(

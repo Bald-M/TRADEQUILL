@@ -12,3 +12,5 @@ exporter, embedded into generated quotations, and never fetched at runtime.
 
 The font supports the quotation's Chinese/English template. Unsupported characters
 produce an explicit export error rather than silently missing glyphs.
+
+桌面打包通过 `tauri.conf.json` 的 `bundle.resources` 附带本说明与 `OFL.txt`，保证字体副本与版权、许可说明一同分发。

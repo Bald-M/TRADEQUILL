@@ -300,6 +300,46 @@ const order: Order = {
   },
 };
 describe("review regressions", () => {
+  it("offers legacy completion once and preserves its source in customer history", () => {
+    const legacy = {
+      id: 31,
+      customerId: 11,
+      inquiryId: null,
+      quotedOn: "2026-10-01",
+      content: "Legacy original",
+      amount: "100.00",
+      currency: "USD",
+      notes: "",
+      createdAt: "",
+      updatedAt: "",
+    };
+    const props = {
+      business: { ...business, quotes: [legacy] },
+      refresh: vi.fn(),
+      route: { kind: "quotes" as const },
+      navigate: vi.fn(),
+    };
+    const { rerender } = render(
+      <CommerceWorkspace {...props} snapshot={snapshot} />,
+    );
+    expect(
+      screen.getByRole("button", { name: "补齐明细生成报价" }),
+    ).toBeVisible();
+    rerender(
+      <CommerceWorkspace
+        {...props}
+        snapshot={{
+          ...snapshot,
+          quotes: [{ ...order.quote, previousQuoteId: 31 }],
+        }}
+      />,
+    );
+    expect(
+      screen.queryByRole("button", { name: "补齐明细生成报价" }),
+    ).not.toBeInTheDocument();
+    expect(props.business.quotes[0]).toEqual(legacy);
+  });
+
   it("shows report loading until IPC completes without displaying stale totals", async () => {
     let resolve!: (value: OrderReport) => void;
     vi.mocked(getOrderReport).mockReturnValue(

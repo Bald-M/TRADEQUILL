@@ -469,7 +469,9 @@ export function Quotes(props: Props) {
   const legacy = business.quotes.filter(
     (q) =>
       (!customerId || q.customerId === Number(customerId)) &&
-      !snapshot.quotes.some((s) => s.quoteId === q.id),
+      !snapshot.quotes.some(
+        (s) => s.quoteId === q.id || s.previousQuoteId === q.id,
+      ),
   );
   return (
     <div className="space-y-4">

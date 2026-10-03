@@ -149,6 +149,20 @@ pub fn save_structured_quote(
             )
             .optional()
             .map_err(|error| error.to_string())?;
+        // A historical quote can start only one structured family. The immediate
+        // transaction serializes concurrent conversions with different request keys.
+        if data.is_none() {
+            let converted: bool = transaction
+                .query_row(
+                    "SELECT EXISTS(SELECT 1 FROM quote_versions WHERE previous_quote_id=?1)",
+                    [id],
+                    |row| row.get(0),
+                )
+                .map_err(|error| error.to_string())?;
+            if converted {
+                return Err("该旧报价已补齐，请从对应结构化报价的最新版本继续修订。".into());
+            }
+        }
         data.map(decode::<QuoteDocument>).transpose()?
     } else {
         None
