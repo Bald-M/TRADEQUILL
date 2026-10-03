@@ -205,6 +205,7 @@ export function Products({ snapshot, refresh, navigate, selectedId }: Props) {
   const [archived, setArchived] = useState(false);
   const [selected, setSelected] = useState<number | undefined>(selectedId);
   const [editing, setEditing] = useState<number | null | undefined>();
+  const [offerEditing, setOfferEditing] = useState(false);
   const [copied, setCopied] = useState(false);
   const items = snapshot.products.filter(
     (p) =>
@@ -232,7 +233,9 @@ export function Products({ snapshot, refresh, navigate, selectedId }: Props) {
           />
           包含归档
         </label>
-        <Button onClick={() => setEditing(null)}>新建产品</Button>
+        <Button disabled={offerEditing} onClick={() => setEditing(null)}>
+          新建产品
+        </Button>
       </div>
       {editing !== undefined ? (
         <Card className="shadow-none">
@@ -256,6 +259,7 @@ export function Products({ snapshot, refresh, navigate, selectedId }: Props) {
                 items.map((p) => (
                   <button
                     key={p.id}
+                    disabled={offerEditing}
                     onClick={() => {
                       setSelected(p.id);
                       setCopied(false);
@@ -284,6 +288,7 @@ export function Products({ snapshot, refresh, navigate, selectedId }: Props) {
                   <CardTitle className="break-words">{product.name}</CardTitle>
                   <Button
                     variant="outline"
+                    disabled={offerEditing}
                     onClick={() => setEditing(product.id)}
                   >
                     编辑产品
@@ -308,6 +313,8 @@ export function Products({ snapshot, refresh, navigate, selectedId }: Props) {
                   )}
                   <h3 className="font-medium">供货来源</h3>
                   <Offers
+                    key={product.id}
+                    onEditingChange={setOfferEditing}
                     snapshot={snapshot}
                     productId={product.id}
                     refresh={refresh}
@@ -382,6 +389,7 @@ export function Suppliers({ snapshot, refresh, navigate, selectedId }: Props) {
   const [showArchived, setShowArchived] = useState(false);
   const [selected, setSelected] = useState(selectedId);
   const [editing, setEditing] = useState<number | null | undefined>();
+  const [offerEditing, setOfferEditing] = useState(false);
   const supplier = snapshot.suppliers.find((s) => s.id === selected);
   const items = snapshot.suppliers.filter(
     (s) =>
@@ -408,7 +416,9 @@ export function Suppliers({ snapshot, refresh, navigate, selectedId }: Props) {
           />
           包含归档
         </label>
-        <Button onClick={() => setEditing(null)}>新建供应商</Button>
+        <Button disabled={offerEditing} onClick={() => setEditing(null)}>
+          新建供应商
+        </Button>
       </div>
       {editing !== undefined ? (
         <Card className="shadow-none">
@@ -433,6 +443,7 @@ export function Suppliers({ snapshot, refresh, navigate, selectedId }: Props) {
               items.map((s) => (
                 <button
                   key={s.id}
+                  disabled={offerEditing}
                   onClick={() => setSelected(s.id)}
                   className={`w-full rounded-lg border p-4 text-left text-sm break-words focus-visible:ring-2 focus-visible:ring-ring ${selected === s.id ? "bg-accent" : "bg-card hover:bg-muted"}`}
                 >
@@ -456,6 +467,7 @@ export function Suppliers({ snapshot, refresh, navigate, selectedId }: Props) {
                 <CardTitle>{supplier.name}</CardTitle>
                 <Button
                   variant="outline"
+                  disabled={offerEditing}
                   onClick={() => setEditing(supplier.id)}
                 >
                   编辑供应商
@@ -475,6 +487,8 @@ export function Suppliers({ snapshot, refresh, navigate, selectedId }: Props) {
                 </p>
                 <h3 className="font-medium">供货产品</h3>
                 <Offers
+                  key={supplier.id}
+                  onEditingChange={setOfferEditing}
                   snapshot={snapshot}
                   supplierId={supplier.id}
                   refresh={refresh}
@@ -491,12 +505,14 @@ export function Suppliers({ snapshot, refresh, navigate, selectedId }: Props) {
   );
 }
 function Offers({
+  onEditingChange,
   snapshot,
   productId,
   supplierId,
   refresh,
   navigate,
 }: {
+  onEditingChange: (editing: boolean) => void;
   snapshot: CommerceSnapshot;
   productId?: number;
   supplierId?: number;
@@ -504,6 +520,10 @@ function Offers({
   navigate: Props["navigate"];
 }) {
   const [editing, setEditing] = useState<number | null | undefined>();
+  const edit = (id: number | null | undefined) => {
+    setEditing(id);
+    onEditingChange(id !== undefined);
+  };
   const items = snapshot.offers.filter(
     (o) =>
       (!productId || o.productId === productId) &&
@@ -511,6 +531,11 @@ function Offers({
   );
   return (
     <div className="space-y-3">
+      {editing !== undefined && (
+        <p role="status" className="text-sm text-muted-foreground">
+          正在编辑供货资料；保存或取消后可切换档案。
+        </p>
+      )}
       {editing !== undefined ? (
         <OfferForm
           key={editing ?? "new"}
@@ -519,11 +544,11 @@ function Offers({
           productId={productId}
           supplierId={supplierId}
           refresh={refresh}
-          done={() => setEditing(undefined)}
+          done={() => edit(undefined)}
         />
       ) : (
         <>
-          <Button variant="outline" onClick={() => setEditing(null)}>
+          <Button variant="outline" onClick={() => edit(null)}>
             关联供货资料
           </Button>
           {items.length ? (
@@ -576,7 +601,7 @@ function Offers({
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => setEditing(offer.id)}
+                  onClick={() => edit(offer.id)}
                 >
                   编辑供货条件
                 </Button>

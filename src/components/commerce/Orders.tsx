@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,6 +11,7 @@ import {
   costCategories,
   draftCostFromOffer,
   getOrderHistory,
+  getCommerceSnapshot,
   orderStatuses,
   saveOrderCosts,
   transitionOrder,
@@ -134,8 +135,89 @@ function CostList({
     </div>
   );
 }
-function OrderEditor({
+// A newer version is adopted only after displaying it and an explicit review.
+// Local inputs stay intact; the server still checks the version at the next save.
+function OrderConflictReview({
   order,
+  version,
+  mode,
+  accept,
+}: {
+  order: Order;
+  version: number;
+  mode: "draft" | "costs" | "status";
+  accept: (version: number) => void;
+}) {
+  const [latest, setLatest] = useState<Order | null>(null);
+  const compatible =
+    latest &&
+    latest.status !== "cancelled" &&
+    (mode !== "draft" || latest.status === "draft") &&
+    latest.sourceQuoteId === order.sourceQuoteId;
+  return (
+    <div className="space-y-3 rounded-lg border p-3">
+      <p className="text-sm">
+        遇到版本冲突时，可读取最新订单。当前输入会保留，核对后再重试保存。
+      </p>
+      <ActionButton
+        action={async () => {
+          const current = (await getCommerceSnapshot()).orders.find(
+            (o) => o.id === order.id,
+          );
+          if (!current)
+            throw new Error("订单不存在，请保留当前输入并检查数据。");
+          setLatest(current);
+        }}
+      >
+        读取最新订单并保留输入
+      </ActionButton>
+      {latest &&
+        (latest.version === version ? (
+          <p role="status">当前已基于最新版本 {version}。</p>
+        ) : (
+          <div className="space-y-3">
+            <p role="status">
+              当前输入基于版本 {version}，数据库已更新至版本 {latest.version}
+              。请核对以下已保存内容；采用新版本后再次保存将写入当前表单内容。
+            </p>
+            <details open>
+              <summary>最新已保存的订单与成本</summary>
+              <div className="space-y-3 py-3">
+                <p>
+                  状态：{orderStatuses[latest.status]} · 订单日期：
+                  {latest.orderedOn} · 交付日期：{latest.deliveryOn ?? "未确定"}
+                </p>
+                <p className="whitespace-pre-wrap">
+                  订单备注：{latest.notes || "无"}
+                </p>
+                <QuoteView quote={latest.quote} />
+                <ProfitView order={latest} />
+                <CostList
+                  entries={latest.costs}
+                  currency={latest.quote.currency}
+                />
+              </div>
+            </details>
+            {compatible ? (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => accept(latest.version)}
+              >
+                已核对最新内容，保留输入并采用版本 {latest.version}
+              </Button>
+            ) : (
+              <p role="alert">
+                订单已取消、确认冻结或更换报价来源，当前编辑不能安全重试。输入仍保留，请复制需要的内容后关闭并重新打开订单。
+              </p>
+            )}
+          </div>
+        ))}
+    </div>
+  );
+}
+function OrderEditor({
+  order: initialOrder,
   snapshot,
   refresh,
   done,
@@ -145,6 +227,7 @@ function OrderEditor({
   refresh: () => Promise<void>;
   done: () => void;
 }) {
+  const [order] = useState(initialOrder);
   const [form, setForm] = useState({
     id: order.id,
     expectedVersion: order.version,
@@ -161,6 +244,12 @@ function OrderEditor({
       onDone={done}
       onCancel={done}
     >
+      <OrderConflictReview
+        order={order}
+        version={form.expectedVersion}
+        mode="draft"
+        accept={(expectedVersion) => setForm({ ...form, expectedVersion })}
+      />
       <div className="grid gap-4 lg:grid-cols-2">
         <TextField
           label="订单日期 *"
@@ -221,7 +310,7 @@ function OrderEditor({
   );
 }
 function StatusForm({
-  order,
+  order: initialOrder,
   status,
   refresh,
   done,
@@ -231,14 +320,16 @@ function StatusForm({
   refresh: () => Promise<void>;
   done: () => void;
 }) {
+  const [order] = useState(initialOrder);
   const [reason, setReason] = useState("");
+  const [version, setVersion] = useState(order.version);
   return (
     <SaveForm
       label={status === "confirmed" ? "确认订单并冻结销售数据" : "确认取消订单"}
       save={() =>
         transitionOrder({
           id: order.id,
-          expectedVersion: order.version,
+          expectedVersion: version,
           status,
           reason,
         })
@@ -247,6 +338,12 @@ function StatusForm({
       onDone={done}
       onCancel={done}
     >
+      <OrderConflictReview
+        order={order}
+        version={version}
+        mode="status"
+        accept={setVersion}
+      />
       <p className="text-sm leading-6">
         {status === "confirmed"
           ? "确认后，订单日期和销售金额将冻结；该订单开始纳入经营统计，成本仍可继续补充。此操作不代表已收款或已履约。"
@@ -262,7 +359,7 @@ function StatusForm({
   );
 }
 function CostsForm({
-  order,
+  order: initialOrder,
   snapshot,
   refresh,
   done,
@@ -272,6 +369,7 @@ function CostsForm({
   refresh: () => Promise<void>;
   done: () => void;
 }) {
+  const [order] = useState(initialOrder);
   const [entries, setEntries] = useState<CostEntry[]>(() =>
     structuredClone(order.costs),
   );
@@ -279,7 +377,7 @@ function CostsForm({
   const [note, setNote] = useState(order.completenessNote);
   const [reason, setReason] = useState("");
   const [reference, setReference] = useState("");
-  const version = useRef(order.version);
+  const [version, setVersion] = useState(order.version);
   const change = (index: number, patch: Partial<CostEntry>) => {
     setEntries((current) =>
       current.map((entry, i) => (i === index ? { ...entry, ...patch } : entry)),
@@ -291,7 +389,7 @@ function CostsForm({
       save={() =>
         saveOrderCosts({
           orderId: order.id,
-          expectedVersion: version.current,
+          expectedVersion: version,
           entries,
           complete,
           completenessNote: note,
@@ -303,6 +401,12 @@ function CostsForm({
       onCancel={done}
       label="保存成本并重算"
     >
+      <OrderConflictReview
+        order={order}
+        version={version}
+        mode="costs"
+        accept={setVersion}
+      />
       <p className="text-sm leading-6">
         每笔支出只录入一次；采购价已含的运费/税费请勿重复录入。未知费用先留待补充，明确零成本可录入
         0 并确认。跨币种不自动获取汇率。

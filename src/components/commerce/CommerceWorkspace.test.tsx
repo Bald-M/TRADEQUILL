@@ -5,6 +5,11 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   getOrderHistory,
+  getCommerceSnapshot,
+  updateOrder,
+  saveOrderCosts,
+  saveOffer,
+  type Order,
   getOrderReport,
   productText,
   saveProduct,
@@ -24,6 +29,10 @@ vi.mock("@/lib/commerce", async (importOriginal) => {
     saveStructuredQuote: vi.fn(),
     getOrderReport: vi.fn(),
     getOrderHistory: vi.fn(),
+    getCommerceSnapshot: vi.fn(),
+    updateOrder: vi.fn(),
+    saveOrderCosts: vi.fn(),
+    saveOffer: vi.fn(),
   };
 });
 const snapshot: CommerceSnapshot = {
@@ -200,4 +209,210 @@ describe("commerce persistence and recovery", () => {
       vi.mocked(getOrderReport).mock.calls[1][0],
     );
   });
+});
+
+const supplier = {
+  id: 21,
+  name: "Supplier A",
+  contact: "Alice",
+  email: "",
+  phone: "",
+  address: "",
+  notes: "",
+  archived: false,
+};
+const related: CommerceSnapshot = {
+  ...snapshot,
+  products: [
+    ...snapshot.products,
+    { ...snapshot.products[0], id: 2, code: "P-02", name: "Second" },
+  ],
+  suppliers: [supplier, { ...supplier, id: 22, name: "Supplier B" }],
+  offers: [
+    {
+      id: 31,
+      productId: 1,
+      supplierId: 21,
+      supplierCode: "original",
+      price: null,
+      currency: "USD",
+      quotedOn: null,
+      moq: null,
+      leadDaysMin: null,
+      leadDaysMax: null,
+      notes: "",
+      active: true,
+    },
+  ],
+};
+const order: Order = {
+  id: 41,
+  number: "SO-000041",
+  sourceQuoteId: 51,
+  orderedOn: "2026-10-01",
+  deliveryOn: null,
+  status: "draft",
+  notes: "original",
+  version: 1,
+  costs: [],
+  costsComplete: false,
+  completenessNote: "",
+  quote: {
+    quoteId: 51,
+    seriesId: 1,
+    revision: 1,
+    number: "QT-000001-R1",
+    previousQuoteId: null,
+    customer: business.customers[0],
+    customerId: 11,
+    inquiryId: null,
+    quotedOn: "2026-10-01",
+    validUntil: "2026-12-31",
+    seller: "Demo Seller",
+    terms: "FOB",
+    currency: "USD",
+    discount: "0.00",
+    tax: "0.00",
+    freight: "0.00",
+    lines: [
+      {
+        productId: 1,
+        product: snapshot.products[0],
+        quantity: "10.000",
+        unitPrice: "10.0000",
+      },
+    ],
+    lineAmounts: ["100.00"],
+    belowMoq: [],
+    subtotal: "100.00",
+    total: "100.00",
+  },
+  profit: {
+    missingRates: 0,
+    complete: false,
+    purchase: null,
+    freight: null,
+    tax: null,
+    other: null,
+    totalCost: null,
+    profit: null,
+    margin: null,
+  },
+};
+describe("review regressions", () => {
+  it.each([
+    ["products", false],
+    ["products", true],
+    ["suppliers", false],
+    ["suppliers", true],
+  ] as const)(
+    "keeps %s association context while editing (existing=%s)",
+    async (kind, existing) => {
+      const user = userEvent.setup();
+      vi.mocked(saveOffer).mockResolvedValue(31);
+      render(
+        <CommerceWorkspace
+          snapshot={related}
+          business={business}
+          refresh={vi.fn().mockResolvedValue(undefined)}
+          route={{ kind, id: kind === "products" ? 1 : 21 }}
+          navigate={vi.fn()}
+        />,
+      );
+      await user.click(
+        screen.getByRole("button", {
+          name: existing ? "编辑供货条件" : "关联供货资料",
+        }),
+      );
+      const second = screen.getByRole("button", {
+        name: kind === "products" ? /P-02 · Second/ : /Supplier B/,
+      });
+      expect(second).toBeDisabled();
+      await user.click(second);
+      expect(
+        screen.getByLabelText(kind === "products" ? "产品 *" : "供应商 *"),
+      ).toHaveValue(kind === "products" ? "1" : "21");
+      await user.click(screen.getByRole("button", { name: "取消并放弃输入" }));
+      await user.click(second);
+      await user.click(screen.getByRole("button", { name: "关联供货资料" }));
+      expect(
+        screen.getByLabelText(kind === "products" ? "产品 *" : "供应商 *"),
+      ).toHaveValue(kind === "products" ? "2" : "22");
+      expect(screen.getByLabelText("供应商货号")).toHaveValue("");
+      await user.selectOptions(
+        screen.getByLabelText(kind === "products" ? "供应商 *" : "产品 *"),
+        kind === "products" ? "21" : "1",
+      );
+      await user.click(screen.getByRole("button", { name: "保存" }));
+      await waitFor(() => expect(saveOffer).toHaveBeenCalledOnce());
+      expect(vi.mocked(saveOffer).mock.calls[0][0]).toMatchObject({
+        id: null,
+        productId: kind === "products" ? 2 : 1,
+        supplierId: kind === "products" ? 21 : 22,
+      });
+    },
+  );
+  it.each(["draft", "costs"] as const)(
+    "recovers %s version conflicts without losing input or silently adopting a version",
+    async (mode) => {
+      const user = userEvent.setup();
+      const mutation =
+        mode === "draft" ? vi.mocked(updateOrder) : vi.mocked(saveOrderCosts);
+      mutation
+        .mockRejectedValueOnce(new Error("订单已更新，请刷新后重试"))
+        .mockResolvedValue(undefined);
+      const current = { ...order, version: 2, notes: "changed elsewhere" };
+      vi.mocked(getCommerceSnapshot).mockResolvedValue({
+        ...snapshot,
+        orders: [current],
+      });
+      const view = (currentOrder: Order) => (
+        <CommerceWorkspace
+          snapshot={{
+            ...snapshot,
+            quotes: [order.quote],
+            orders: [currentOrder],
+          }}
+          business={business}
+          refresh={vi.fn().mockResolvedValue(undefined)}
+          route={{ kind: "orders", id: 41 }}
+          navigate={vi.fn()}
+        />
+      );
+      const { rerender } = render(view(order));
+      await user.click(
+        screen.getByRole("button", {
+          name: mode === "draft" ? "更正草稿" : "录入 / 更正成本",
+        }),
+      );
+      const reasonLabel =
+        mode === "draft" ? "更正原因 *" : "本次成本录入/更正原因 *";
+      await user.type(screen.getByLabelText(reasonLabel), "preserve my input");
+      const submit = () =>
+        screen.getByRole("button", {
+          name: mode === "draft" ? "保存" : "保存成本并重算",
+        });
+      await user.click(submit());
+      expect(await screen.findByRole("alert")).toHaveTextContent("订单已更新");
+      rerender(view(current));
+      expect(mutation.mock.calls[0][0].expectedVersion).toBe(1);
+      await user.click(
+        screen.getByRole("button", { name: "读取最新订单并保留输入" }),
+      );
+      const acknowledge = await screen.findByRole("button", {
+        name: "已核对最新内容，保留输入并采用版本 2",
+      });
+      expect(screen.getByLabelText(reasonLabel)).toHaveValue(
+        "preserve my input",
+      );
+      expect(mutation).toHaveBeenCalledTimes(1);
+      await user.click(acknowledge);
+      await user.click(submit());
+      await waitFor(() => expect(mutation).toHaveBeenCalledTimes(2));
+      expect(mutation.mock.calls[1][0]).toMatchObject({
+        expectedVersion: 2,
+        reason: "preserve my input",
+      });
+    },
+  );
 });
