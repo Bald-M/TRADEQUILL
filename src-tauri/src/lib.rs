@@ -1,3 +1,4 @@
+mod catalog;
 mod storage;
 
 use tauri::Manager;
@@ -123,7 +124,115 @@ async fn mark_reminder_sent(app: tauri::AppHandle, local_date: String) -> Result
         .map_err(|error| format!("本地存储任务失败：{error}"))?
 }
 
+async fn catalog_task<T: Send + 'static>(
+    app: tauri::AppHandle,
+    operation: impl FnOnce(std::path::PathBuf) -> Result<T, String> + Send + 'static,
+) -> Result<T, String> {
+    let data_dir = app_data_dir(&app)?;
+    tauri::async_runtime::spawn_blocking(move || operation(data_dir))
+        .await
+        .map_err(|_| "本地资料任务未完成，请重试。".to_string())?
+}
+
+#[tauri::command]
+async fn list_catalog(app: tauri::AppHandle) -> Result<catalog::CatalogSnapshot, String> {
+    catalog_task(app, catalog::list_catalog).await
+}
+
+#[tauri::command]
+async fn save_product(
+    app: tauri::AppHandle,
+    input: catalog::ProductInput,
+) -> Result<catalog::ProductRecord, String> {
+    catalog_task(app, move |path| catalog::save_product(path, input)).await
+}
+
+#[tauri::command]
+async fn set_product_archived(
+    app: tauri::AppHandle,
+    product_id: i64,
+    archived: bool,
+) -> Result<(), String> {
+    catalog_task(app, move |path| {
+        catalog::set_product_archived(path, product_id, archived)
+    })
+    .await
+}
+
+#[tauri::command]
+async fn preview_knowledge_import(
+    app: tauri::AppHandle,
+    input: catalog::FileImportInput,
+) -> Result<catalog::ImportPreview, String> {
+    catalog_task(app, move |path| {
+        catalog::preview_knowledge_import(path, input)
+    })
+    .await
+}
+
+#[tauri::command]
+async fn save_knowledge(
+    app: tauri::AppHandle,
+    input: catalog::KnowledgeInput,
+) -> Result<catalog::KnowledgeSummary, String> {
+    catalog_task(app, move |path| catalog::save_knowledge(path, input)).await
+}
+
+#[tauri::command]
+async fn get_knowledge_document(
+    app: tauri::AppHandle,
+    document_id: i64,
+) -> Result<catalog::KnowledgeDetail, String> {
+    catalog_task(app, move |path| {
+        catalog::get_knowledge_document(path, document_id)
+    })
+    .await
+}
+
+#[tauri::command]
+async fn set_knowledge_archived(
+    app: tauri::AppHandle,
+    document_id: i64,
+    archived: bool,
+) -> Result<(), String> {
+    catalog_task(app, move |path| {
+        catalog::set_knowledge_archived(path, document_id, archived)
+    })
+    .await
+}
+
+#[tauri::command]
+async fn delete_knowledge(app: tauri::AppHandle, document_id: i64) -> Result<(), String> {
+    catalog_task(app, move |path| {
+        catalog::delete_knowledge(path, document_id)
+    })
+    .await
+}
+
+#[tauri::command]
+async fn search_knowledge(
+    app: tauri::AppHandle,
+    input: catalog::KnowledgeSearchInput,
+) -> Result<Vec<catalog::KnowledgeSnippet>, String> {
+    catalog_task(app, move |path| catalog::search_knowledge(path, input)).await
+}
+
+#[tauri::command]
+async fn check_knowledge_reference(
+    app: tauri::AppHandle,
+    document_id: i64,
+    version: i64,
+) -> Result<String, String> {
+    catalog_task(app, move |path| {
+        catalog::check_knowledge_reference(path, document_id, version)
+    })
+    .await
+}
+
 pub fn run() {
+    if catalog::maybe_run_pdf_worker() {
+        return;
+    }
     tauri::Builder::default()
         .plugin(tauri_plugin_notification::init())
         .invoke_handler(tauri::generate_handler![
@@ -138,7 +247,17 @@ pub fn run() {
             save_follow_up_task,
             set_follow_up_task_completed,
             due_reminder,
-            mark_reminder_sent
+            mark_reminder_sent,
+            list_catalog,
+            save_product,
+            set_product_archived,
+            preview_knowledge_import,
+            save_knowledge,
+            get_knowledge_document,
+            set_knowledge_archived,
+            delete_knowledge,
+            search_knowledge,
+            check_knowledge_reference
         ])
         .run(tauri::generate_context!())
         .expect("error while running TradeQuill");

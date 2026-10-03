@@ -51,3 +51,35 @@
 
 - Windows 实机运行与安装包安装。
 - macOS 系统通知权限提示和通知投递未在人工验收中触发；提醒的到期判定、每日一次去重和 IPC 已由自动测试及本机构建覆盖。
+
+## 产品档案与离线知识库验收（Issue #11 / #23，Epic #17 基础）
+
+环境：macOS Apple Silicon；2026-10-03 至 2026-10-04，分支 `codex/issue-17-ai-workflows`。使用独立应用标识的调试 `.app` 和合成产品/PDF，未读取真实客户资料。这里记录产品档案和离线资料管理，不能作为整个 Epic #17 的完成证据。
+
+### 自动验证
+
+- `pnpm install --frozen-lockfile --offline`、`pnpm build`、`pnpm format:check`：通过。
+- `pnpm test`：10 个文件、36 个测试通过。新增覆盖产品表单校验，资料预览确认、版本编辑、筛选范围、加载/失败恢复、取消与迟到响应、写入成功后刷新失败的重复提交防护，以及主导航在产品/资料编辑、保存中和保存失败时的输入保护。产品归档由 Rust 测试覆盖，资料复制由实际桌面验收覆盖。
+- `cargo test --manifest-path src-tauri/Cargo.toml --locked`：18 个测试通过。新增覆盖产品数值与编号约束、资料版本与文件去重、空库/超限/无效文本、预览过期、并发版本冲突、删除后的检索与引用失效、总容量拒绝写入且保留旧版本，以及 schema 2 历史业务保留和迁移失败回滚；原有业务闭环与高版本 schema 拒绝降级测试继续通过。
+- `cargo fmt --manifest-path src-tauri/Cargo.toml --check`、`pnpm check:rust`：通过。
+- `pnpm tauri build --debug --bundles app --config <隔离验收配置>`：生成并实际启动 macOS Apple Silicon 调试 `.app`。这不是 Windows 构建、签名或安装包验收。
+- `pnpm tauri build --no-bundle`：正式配置的 macOS Apple Silicon release 原生可执行文件构建通过，初始候选 `81b420f` 及导航保护修复后均已执行。无安装包生成或签名。
+- Standards 与 Spec 两项独立本地审查：修复主导航丢弃未保存输入与测试覆盖文案后，离线 #11/#23 无未解决发现。完整 Epic 的 AI 部分仍未交付。
+
+### 实际桌面验收
+
+- 创建 `WIDGET-A` 合成产品，设置名称/值参数、MOQ `100 pcs` 和交期 `14 天（确认订单后至发货）`；详情与复制资料一致。
+- 通过本机文件选择器导入一页含文本的 PDF，真实 Rust 子进程提取原文；检查来源、产品关联、标签、确认状态和公开范围后显式确认保存。
+- 搜索 `MOQ` 返回当前版本的匹配片段与页码；点击结果打开 PDF 第 1 页提取文字。无匹配词返回明确空状态。
+- 退出并重新启动 `.app` 后，产品、已导入 PDF、提取文字及主题偏好保留，数据库为 schema 3。
+- 损坏 PDF 的实际导入被拒绝，显示失败原因并保留已输入标题/来源；取消导入后原有资料仍在。
+- 浅/深主题及 900 × 600 最小窗口下检查产品、检索与失败界面，无横向滚动条；导航区可独立滚动。键盘 Tab 焦点可见，并可用键盘打开文件选择器。
+- 导航保护修复后的实际 `.app` 中，填写新产品后尝试点击客户管理，表单和输入仍保留；点击取消后主导航恢复，能够进入客户管理。
+
+界面证据：[知识库浅色](assets/validation/issue17/knowledge-light.png)、[知识库深色](assets/validation/issue17/knowledge-dark.png)、[最小窗口浅色](assets/validation/issue17/product-min-light.png)、[最小窗口深色](assets/validation/issue17/product-min-dark.png)、[PDF 失败](assets/validation/issue17/pdf-failure-min.png)、[检索空状态](assets/validation/issue17/search-empty-min.png)、[编辑导航保护](assets/validation/issue17/edit-navigation-min.png)。失败截图记录实际流程，之后仅修正了错误提示的重复句号。
+
+### 尚未完成的验收与范围
+
+- Windows 实机运行与安装；远端 CI 结果以本次 PR 最新提交的检查为准。本节记录本地验证，历史 CI 结果不能替代本次结果。
+- #18 服务配置、#21 公开线索搜索、#22 评估与转客户、#24 有据问答、#25 竞品报告尚未实现，等待首个模型/搜索服务及业务规则选择。没有执行真实模型或搜索服务验收。
+- #19/#20 仍为后续可选沟通需求。扫描 PDF 的 OCR、音视频、向量数据库和自动营销不在本阶段范围。
