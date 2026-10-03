@@ -11,13 +11,23 @@ import { ErrorNotice } from "./CatalogForms";
 import { ProductWorkspace } from "./ProductWorkspace";
 import { KnowledgeWorkspace } from "./KnowledgeWorkspace";
 
-export function CatalogWorkspace() {
+export function CatalogWorkspace({
+  onEditing,
+}: {
+  onEditing?: (editing: boolean) => void;
+} = {}) {
   const [section, setSection] = useState<"products" | "knowledge">("products");
   const [snapshot, setSnapshot] = useState<CatalogSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [editing, setEditing] = useState(false);
   const generation = useRef(0);
+
+  useEffect(() => {
+    onEditing?.(editing);
+  }, [editing, onEditing]);
+  useEffect(() => () => onEditing?.(false), [onEditing]);
+
   const refresh = useCallback(async () => {
     const request = ++generation.current;
     setLoading(true);

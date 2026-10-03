@@ -64,9 +64,11 @@ function App() {
   const [storage, setStorage] = useState<StorageState>({ kind: "loading" });
   const [business, setBusiness] = useState<BusinessState>({ kind: "idle" });
   const [attempt, setAttempt] = useState(0);
+  const [catalogEditing, setCatalogEditing] = useState(false);
   const { dark, toggleTheme } = useTheme();
   const activePage = pages.find((item) => item.id === page)!;
   const reminderMessage = useDailyReminder(storage.kind === "ready");
+  const catalogNavigationBlocked = page === "catalog" && catalogEditing;
 
   const refreshBusiness = useCallback(async () => {
     try {
@@ -146,6 +148,12 @@ function App() {
               variant={page === id ? "secondary" : "ghost"}
               className="h-11 w-full justify-start gap-3"
               aria-current={page === id ? "page" : undefined}
+              disabled={catalogNavigationBlocked && id !== "catalog"}
+              aria-describedby={
+                catalogNavigationBlocked && id !== "catalog"
+                  ? "catalog-editing-navigation-note"
+                  : undefined
+              }
               onClick={() => setPage(id)}
             >
               <Icon className="size-4" aria-hidden="true" />
@@ -153,6 +161,15 @@ function App() {
             </Button>
           ))}
         </nav>
+        {catalogNavigationBlocked && (
+          <p
+            id="catalog-editing-navigation-note"
+            role="status"
+            className="mt-3 px-3 text-xs leading-5 text-muted-foreground"
+          >
+            请先保存或取消当前产品/资料编辑，再切换页面。保存期间请等待完成。
+          </p>
+        )}
         <div className="mt-auto space-y-4 px-2">
           <div className="rounded-lg border bg-background p-3">
             <ShieldCheck
@@ -414,7 +431,7 @@ function App() {
           )}
 
           {page === "catalog" && storage.kind === "ready" && (
-            <CatalogWorkspace />
+            <CatalogWorkspace onEditing={setCatalogEditing} />
           )}
 
           {page === "data" && (
