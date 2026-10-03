@@ -8,6 +8,7 @@ import {
 } from "react";
 import { LoaderCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { SelectField } from "@/components/ui/select";
 import {
   appendSampleProgress,
   currencies,
@@ -367,18 +368,15 @@ export function InquiryForm({
         </Field>
         <Field label="跟进阶段 *">
           {(id) => (
-            <select
+            <SelectField
               id={id}
               value={form.stage}
-              onChange={(event) => set("stage", event.target.value)}
-              className={fieldClass}
-            >
-              {followUpStages.map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
+              onValueChange={(value) => set("stage", value)}
+              options={followUpStages.map(([value, label]) => ({
+                value,
+                label,
+              }))}
+            />
           )}
         </Field>
         <Field label="询盘来源 *" error={errors.source}>
@@ -457,21 +455,18 @@ function InquirySelect({
   onChange: (value: number | null) => void;
 }) {
   return (
-    <select
+    <SelectField
       id={id}
-      value={value ?? ""}
-      onChange={(event) =>
-        onChange(event.target.value ? Number(event.target.value) : null)
-      }
-      className={fieldClass}
-    >
-      <option value="">不关联询盘</option>
-      {inquiries.map((inquiry) => (
-        <option key={inquiry.id} value={inquiry.id}>
-          {inquiry.receivedOn} · {inquiry.products.join("、")}
-        </option>
-      ))}
-    </select>
+      value={value === null ? "" : String(value)}
+      onValueChange={(value) => onChange(value ? Number(value) : null)}
+      options={[
+        { value: "", label: "不关联询盘" },
+        ...inquiries.map((inquiry) => ({
+          value: String(inquiry.id),
+          label: `${inquiry.receivedOn} · ${inquiry.products.join("、")}`,
+        })),
+      ]}
+    />
   );
 }
 
@@ -580,16 +575,15 @@ export function QuoteForm({
         </Field>
         <Field label="币种 *">
           {(id) => (
-            <select
+            <SelectField
               id={id}
               value={form.currency}
-              onChange={(event) => set("currency", event.target.value)}
-              className={fieldClass}
-            >
-              {currencies.map((currency) => (
-                <option key={currency}>{currency}</option>
-              ))}
-            </select>
+              onValueChange={(value) => set("currency", value)}
+              options={currencies.map((currency) => ({
+                value: currency,
+                label: currency,
+              }))}
+            />
           )}
         </Field>
       </div>
@@ -935,25 +929,21 @@ export function SampleProgressForm({
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label="下一阶段" error={errors.stage}>
           {(id, errorId) => (
-            <select
+            <SelectField
               id={id}
               value={stage}
-              onChange={(event) => {
-                setStage(event.target.value);
+              onValueChange={(value) => {
+                setStage(value);
                 setErrors((current) => ({ ...current, stage: "" }));
                 setServerError("");
               }}
               aria-invalid={Boolean(errors.stage)}
               aria-describedby={errorId}
-              className={fieldClass}
-            >
-              <option value="">请选择</option>
-              {nextStages.map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
+              options={[
+                { value: "", label: "请选择" },
+                ...nextStages.map(([value, label]) => ({ value, label })),
+              ]}
+            />
           )}
         </Field>
         <Field label="发生日期" error={errors.occurredOn}>
