@@ -62,7 +62,7 @@
 - `pnpm format:check`、`pnpm build`、`cargo fmt --manifest-path src-tauri/Cargo.toml --check`、`pnpm check:rust` 通过。
 - `cargo test --manifest-path src-tauri/Cargo.toml --locked`：17 项通过，覆盖 schema 2 兼容、schema 3 事务回滚、重复启动及高版本拒绝；目录唯一性和归档；旧报价显式补全与不可变修订；并发转单去重、取消重开与审计快照；参考价格变更隔离；金额舍入、JPY、外币汇率、缺失成本、零收入、负利润及分币种日期边界统计。
 - `pnpm tauri build --debug --bundles app --config <隔离验收配置>`：生成并启动本机 macOS Apple Silicon 调试 `.app`。分别使用 1280×820、900×600 配置，不修改正式应用标识。
-- PDF 自动回归生成单页与四页中文长资料样例，逐页渲染检查未见重叠、截断或乱码；提取文本核对中文、金额与内部信息排除。包含不支持字符、非 PDF 后缀、不可写目录及原文件保留检查。
+- PDF 自动回归生成单页与四页中文长资料样例，逐页渲染检查未见重叠、截断或乱码；提取文本核对中文、金额与内部信息排除。包含不支持字符、非 PDF 后缀、目标目录不存在及原文件保留检查。
 
 ### 实际桌面链路
 
