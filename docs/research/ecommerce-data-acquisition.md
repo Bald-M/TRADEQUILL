@@ -7,26 +7,26 @@
 ## 结论与项目边界
 
 - 自有店铺优先使用卖家授权的官方接口；公开竞品采集分别验证生产准入、用途及历史保存权限。接口返回数据不等于允许任意复用。
-- Amazon SP-API 可查询目录及竞争报价，并非只能查询自己的商品；但需要相应卖家授权和角色。Creators API 不作为桌面监价默认路线。[A1][A2][A6]
-- Keepa 的历史价格能力与监价相符，但长期存储、桌面展示、导出以及与 SP-API 同用的政策兼容性未确认，保留为候选。[K1][K2][A7]
-- eBay Buy 与 Sell 接口分开选型；Walmart 本店 Pricing Insights 不能外推为全站竞品接口。[E1][E2][W1]
+- Amazon SP-API 可查询目录及竞争报价，并非只能查询自己的商品；但需要相应卖家授权和角色。Creators API 不作为桌面监价默认路线。[A1] · [A2] · [A6]
+- Keepa 的历史价格能力与监价相符，但长期存储、桌面展示、导出以及与 SP-API 同用的政策兼容性未确认，保留为候选。[K1] · [K2] · [A7]
+- eBay Buy 与 Sell 接口分开选型；Walmart 本店 Pricing Insights 不能外推为全站竞品接口。[E1] · [E2] · [W1]
 - 监控仅在 TradeQuill 运行且电脑清醒时执行。退出、休眠、离线产生真实空档；恢复时限速刷新当前数据。付费只评估，不采购；本次不实现采集功能，不引入 AI、远端调度或自动定价。
 
 研究基线为远端 `main` 的 `24a5ebe45055189cf2fb1e9de21f77f4d6a51377`，其已有客户/询盘与跟进业务，尚无本需求的数据连接器。其他功能分支的产品档案和知识库不视为此基线已交付能力。现有 [#18](https://github.com/Bald-M/TRADEQUILL/issues/18) 可关联服务配置经验，[#25](https://github.com/Bald-M/TRADEQUILL/issues/25) 可消费未来获准的来源；本研究不改变它们的范围，也不将 AI 设为采集前置。
 
 ## 数据源与能力矩阵
 
-| 平台/用途                | 官方能力与主要字段                                                                                                                                  | 准入、时效及主要缺口                                                                                                                                        |
-| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Amazon 目录/竞品基础资料 | Catalog Items：ASIN、属性、图片、分类、尺寸、关系和排名。[A1]                                                                                       | Product Listing 角色；目录不是完整评论或真实销量数据源。                                                                                                    |
-| Amazon 竞争报价          | Product Pricing `getCompetitiveSummary`：Featured Offer、最低报价、参考价、卖家、成色和配送等；每批最多 20 个 ASIN/站点请求。[A2]                   | 当前报价，不是历史数据库；默认 0.033 请求/秒、burst 1，实际额度以账号响应为准。地理位置、Prime 和优惠条件会影响口径。[A3]                                   |
-| Amazon 自有店铺          | 授权商品/库存、Orders、Reports；订单可按需获取金额/履约数据；销售流量报表按日期/ASIN 聚合。[A4][A5]                                                 | 私有自用与公共应用授权不同，私有卖家开发资格要求 Professional Selling Account。[A8] 指定销售流量报表要求 Brand Analytics 角色，最长回看两年；报表异步生成。 |
-| Amazon 评论              | Customer Feedback 返回主题、趋势与片段。[A9]                                                                                                        | 每周更新、仅英文，支持 US/UK/FR/IT/DE/ES/JP；角色受限，不能承诺完整逐条评论。                                                                               |
-| eBay 公开商品            | Browse 的搜索/详情：价格、卖家、配送、可购买状态。[E1]                                                                                              | Buy 生产准入需申请，获批不保证；可购买状态不等于精确库存。Marketplace Insights 不向新用户开放。[E2][E3]                                                     |
-| eBay 自有店铺            | Inventory/offer、Trading/Sell Feed 等读取刊登；Sell Fulfillment 读订单；Analytics 提供流量与卖家指标；Finances 提供交易/费用/打款。[E4][E5][E6][E7] | 需卖家 OAuth。Inventory 不保证覆盖所有历史刊登路径。Finances 的 EU/UK 居民卖家请求额外要求数字签名；不能把 Buy 准入套用于全部 Sell API。                    |
-| Walmart 目录/竞争信息    | Item Search 查询公开目录；Pricing Insights 返回本店 SKU 价格、Buy Box、竞争价格。[W1][W2]                                                           | 面向卖家业务；搜索最多 40 个匹配项。Pricing Insights 不保证覆盖任意竞品。                                                                                   |
-| Walmart 自有店铺         | Items、Inventory、Orders；Item Performance 包括销量、GMV、转化等。[W3][W4][W10][W11]                                                                | 需卖家/服务商授权；报表异步、v3 支持期间及聚合粒度，最长回看两年。US 能力不能自动推广到其他市场。                                                           |
-| Keepa / Amazon 历史      | 商品、价格历史、报价、卖家、tracking；Product 最多 100 个 ASIN/请求。[K1][K2]                                                                       | 第三方付费；不能追踪 Amazon Fresh。默认约一小时刷新阈值，offers 更新独立且不规律；刷新失败仍可能 HTTP 200 返回旧资料。不是 15 分钟新鲜度保证。              |
+| 平台/用途                | 官方能力与主要字段                                                                                                                                           | 准入、时效及主要缺口                                                                                                                                        |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Amazon 目录/竞品基础资料 | Catalog Items：ASIN、属性、图片、分类、尺寸、关系和排名。[A1]                                                                                                | Product Listing 角色；目录不是完整评论或真实销量数据源。                                                                                                    |
+| Amazon 竞争报价          | Product Pricing `getCompetitiveSummary`：Featured Offer、最低报价、参考价、卖家、成色和配送等；每批最多 20 个 ASIN/站点请求。[A2]                            | 当前报价，不是历史数据库；默认 0.033 请求/秒、burst 1，实际额度以账号响应为准。地理位置、Prime 和优惠条件会影响口径。[A3]                                   |
+| Amazon 自有店铺          | 授权商品/库存、Orders、Reports；订单可按需获取金额/履约数据；销售流量报表按日期/ASIN 聚合。[A4] · [A5]                                                       | 私有自用与公共应用授权不同，私有卖家开发资格要求 Professional Selling Account。[A8] 指定销售流量报表要求 Brand Analytics 角色，最长回看两年；报表异步生成。 |
+| Amazon 评论              | Customer Feedback 返回主题、趋势与片段。[A9]                                                                                                                 | 每周更新、仅英文，支持 US/UK/FR/IT/DE/ES/JP；角色受限，不能承诺完整逐条评论。                                                                               |
+| eBay 公开商品            | Browse 的搜索/详情：价格、卖家、配送、可购买状态。[E1]                                                                                                       | Buy 生产准入需申请，获批不保证；可购买状态不等于精确库存。Marketplace Insights 不向新用户开放。[E2] · [E3]                                                  |
+| eBay 自有店铺            | Inventory/offer、Trading/Sell Feed 等读取刊登；Sell Fulfillment 读订单；Analytics 提供流量与卖家指标；Finances 提供交易/费用/打款。[E4] · [E5] · [E6] · [E7] | 需卖家 OAuth。Inventory 不保证覆盖所有历史刊登路径。Finances 的 EU/UK 居民卖家请求额外要求数字签名；不能把 Buy 准入套用于全部 Sell API。                    |
+| Walmart 目录/竞争信息    | Item Search 查询公开目录；Pricing Insights 返回本店 SKU 价格、Buy Box、竞争价格。[W1] · [W2]                                                                 | 面向卖家业务；搜索最多 40 个匹配项。Pricing Insights 不保证覆盖任意竞品。                                                                                   |
+| Walmart 自有店铺         | Items、Inventory、Orders；Item Performance 包括销量、GMV、转化等。[W3] · [W4] · [W10] · [W11]                                                                | 需卖家/服务商授权；报表异步、v3 支持期间及聚合粒度，最长回看两年。US 能力不能自动推广到其他市场。                                                           |
+| Keepa / Amazon 历史      | 商品、价格历史、报价、卖家、tracking；Product 最多 100 个 ASIN/请求。[K1] · [K2]                                                                             | 第三方付费；不能追踪 Amazon Fresh。默认约一小时刷新阈值，offers 更新独立且不规律；刷新失败仍可能 HTTP 200 返回旧资料。不是 15 分钟新鲜度保证。              |
 
 Amazon 的 `ANY_OFFER_CHANGED` 仅覆盖授权卖家有 active offers 的商品，使用 SQS 工作流，不代表任意竞品实时推送。[A10] 本地运行模式优先评估有界拉取，不把远端通知设施列为第一阶段前置。
 
@@ -56,9 +56,9 @@ SP-API DPP 要求按授权目的保留数据，并规定撤权等情形的删除
 
 eBay API License 对 listing 展示新鲜度（不超过六小时滞后）、其他内容（24 小时）、停止公开后的删除、某些衍生分析及 Restricted API 定价用途设有限制。是否可保存历史和提供跨平台竞品分析须结合具体用途获确认；自有经营报表与公开竞品分析不能混判。[E8]
 
-Walmart 美国卖家可直连自己的凭据；新美国 Solution Provider 需要获批并使用 OAuth 2.0，Global 文档仍有不同的 delegated credentials 流程。[W5][W6] 美国 API 条款限制 Approved Purposes 以外的数据再利用/组合；长期历史和跨平台分析需要按适用合同确认。[W7]
+Walmart 美国卖家可直连自己的凭据；新美国 Solution Provider 需要获批并使用 OAuth 2.0，Global 文档仍有不同的 delegated credentials 流程。[W5] · [W6] 美国 API 条款限制 Approved Purposes 以外的数据再利用/组合；长期历史和跨平台分析需要按适用合同确认。[W7]
 
-eBay 与 Walmart 网站使用条款对自动化采集要求事先许可。[E9][W8] AUP 新入口若无法读取，可使用[官方旧入口](https://sellercentral.amazon.com/mws/static/policy?documentType=AUP&locale=en_US)，本次会重定向至现行正文。本次未稳定取得 Amazon 零售站通用条款正文，不借用其 Shipping/Business 条款作全站结论。`robots.txt` 是抓取规则，不是访问或内容使用授权。[R1]
+eBay 与 Walmart 网站使用条款对自动化采集要求事先许可。[E9] · [W8] AUP 新入口若无法读取，可使用[官方旧入口](https://sellercentral.amazon.com/mws/static/policy?documentType=AUP&locale=en_US)，本次会重定向至现行正文。本次未稳定取得 Amazon 零售站通用条款正文，不借用其 Shipping/Business 条款作全站结论。`robots.txt` 是抓取规则，不是访问或内容使用授权。[R1]
 
 ### 桌面授权
 
@@ -143,7 +143,7 @@ eBay 与 Walmart 网站使用条款对自动化采集要求事先许可。[E9][W
 [E6]: https://developer.ebay.com/api-docs/sell/analytics/static/overview.html
 [E7]: https://developer.ebay.com/api-docs/sell/static/finances/finances-landing.html
 [E8]: https://developer.ebay.com/join/api-license-agreement
-[E9]: https://www.ebay.com/help/policies/member-behavior-policies/user-agreement?id=5414
+[E9]: https://www.ebay.com/help/policies/member-behavior-policies/user-agreement?id=4259
 [E10]: https://www.developer.ebay.com/develop/get-started/api-call-limits
 [E11]: https://developer.ebay.com/
 [W1]: https://developer.walmart.com/us-marketplace/docs/get-pricing-insights
