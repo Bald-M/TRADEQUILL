@@ -1085,15 +1085,20 @@ pub fn check_knowledge_reference(
 
 fn snippet(text: &str, terms: &[String]) -> String {
     let chars: Vec<char> = text.chars().collect();
-    let first = if let Some(term) = terms.first() {
-        let lower = text.to_lowercase();
-        lower
-            .find(term)
-            .map(|byte| lower[..byte].chars().count())
-            .unwrap_or(0)
-    } else {
-        0
-    };
+    let lower = text.to_lowercase();
+    let first = terms
+        .iter()
+        .filter_map(|term| lower.find(term))
+        .min()
+        .and_then(|byte| {
+            // Lowercasing can expand a character, so map back to the original text.
+            let mut lowered_bytes = 0;
+            chars.iter().position(|ch| {
+                lowered_bytes += ch.to_lowercase().map(char::len_utf8).sum::<usize>();
+                lowered_bytes > byte
+            })
+        })
+        .unwrap_or(0);
     let start = first.saturating_sub(120).min(chars.len());
     let end = (start + 600).min(chars.len());
     let mut out: String = chars[start..end].iter().collect();

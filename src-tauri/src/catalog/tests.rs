@@ -71,6 +71,26 @@ fn search(query: &str, ids: Vec<i64>) -> KnowledgeSearchInput {
 }
 
 #[test]
+fn search_snippets_locate_body_matches_when_other_terms_match_metadata() {
+    for prefix in ["前", "İ"] {
+        let root = TempData::new();
+        let text = format!("{}Steel 本地资料{}", prefix.repeat(1000), "后".repeat(1000));
+        let mut input = document(None, &text);
+        input.tags = vec!["sample-tag".into()];
+        let saved = save_knowledge(root.0.clone(), input).unwrap();
+        let mut query = search("specification sample-tag STEEL", vec![]);
+        query.include_general = true;
+        let results = search_knowledge(root.0.clone(), query).unwrap();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].document_id, saved.id);
+        assert!(results[0].text.contains("Steel 本地资料"));
+        assert!(results[0].text.starts_with('…'));
+        assert!(results[0].text.ends_with('…'));
+        assert!(results[0].text.chars().count() <= 602);
+    }
+}
+
+#[test]
 fn products_preserve_authority_and_validate_decimal_units_and_archive() {
     let root = TempData::new();
     let record = save_product(root.0.clone(), product("SKU-A")).unwrap();
