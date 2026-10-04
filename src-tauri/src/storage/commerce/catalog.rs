@@ -16,13 +16,15 @@ pub struct Product {
     pub moq: Option<String>,
     pub lead_days_min: Option<i64>,
     pub lead_days_max: Option<i64>,
+    #[serde(default)]
+    pub lead_time_note: String,
     pub notes: String,
     pub archived: bool,
 }
 
 pub type ProductInput = Input<Product>;
 
-pub(super) fn lead_days(min: Option<i64>, max: Option<i64>) -> Result<(), String> {
+pub(crate) fn lead_days(min: Option<i64>, max: Option<i64>) -> Result<(), String> {
     match (min, max) {
         (None, None) => Ok(()),
         (Some(min), Some(max)) if min >= 0 && max >= min && max <= 3650 => Ok(()),
@@ -32,8 +34,12 @@ pub(super) fn lead_days(min: Option<i64>, max: Option<i64>) -> Result<(), String
 
 pub(super) fn validate_product(mut product: Product) -> Result<Product, String> {
     product.code = required(product.code, "产品编号", 80)?;
-    product.name = required(product.name, "产品名称", 160)?;
+    product.name = required(product.name, "产品名称", 200)?;
     product.unit = required(product.unit, "计量单位", 40)?;
+    product.lead_time_note = optional(product.lead_time_note, "交期说明", 500)?;
+    if product.lead_days_min.is_some() && product.lead_time_note.is_empty() {
+        product.lead_time_note = "确认订单后".into();
+    }
     product.notes = optional(product.notes, "产品备注", 2000)?;
     product.moq = optional_decimal(product.moq, 3, "MOQ")?;
     if product.moq.as_deref() == Some("0.000") {
@@ -60,39 +66,67 @@ pub fn save_product(data_dir: PathBuf, input: ProductInput) -> Result<i64, Strin
     let transaction = connection
         .transaction_with_behavior(TransactionBehavior::Immediate)
         .map_err(|error| error.to_string())?;
-    let key = product.code.to_lowercase();
-    let duplicate: bool = transaction
-        .query_row(
-            "SELECT EXISTS(SELECT 1 FROM products WHERE code_key=?1 AND id!=?2)",
-            params![key, input.id.unwrap_or(0)],
-            |row| row.get(0),
+    let record = crate::catalog::save_product_in_transaction(
+        &transaction,
+        crate::catalog::ProductInput {
+            id: input.id,
+            sku: product.code,
+            name: product.name,
+            unit: product.unit,
+            parameters: product
+                .parameters
+                .into_iter()
+                .map(|p| crate::catalog::ProductParameter {
+                    name: p.name,
+                    value: p.value,
+                })
+                .collect(),
+            moq: product.moq,
+            lead_time_days: product.lead_days_min,
+            lead_time_max_days: product.lead_days_max,
+            lead_time_note: product.lead_time_note,
+        },
+    )?;
+    let id = record.id;
+    transaction
+        .execute(
+            "UPDATE products SET archived=?1,internal_notes=?2 WHERE id=?3",
+            params![product.archived, product.notes, id],
         )
-        .map_err(|error| error.to_string())?;
-    if duplicate {
-        return Err("产品编号已存在（不区分大小写），请编辑原档案或使用其他编号。".into());
-    }
-    let data = encode(&product)?;
-    let id = if let Some(id) = input.id {
-        update_one(
-            transaction
-                .execute(
-                    "UPDATE products SET code_key=?1,data=?2 WHERE id=?3",
-                    params![key, data, id],
-                )
-                .map_err(|error| error.to_string())?,
-        )?;
-        id
-    } else {
-        transaction
-            .execute(
-                "INSERT INTO products(code_key,data) VALUES (?1,?2)",
-                params![key, data],
-            )
-            .map_err(|error| error.to_string())?;
-        transaction.last_insert_rowid()
-    };
+        .map_err(|e| e.to_string())?;
     transaction.commit().map_err(|error| error.to_string())?;
     Ok(id)
+}
+
+impl From<crate::catalog::ProductRecord> for Record<Product> {
+    fn from(value: crate::catalog::ProductRecord) -> Self {
+        Self {
+            id: value.id,
+            data: Product {
+                code: value.sku,
+                name: value.name,
+                unit: value.unit,
+                parameters: value
+                    .parameters
+                    .into_iter()
+                    .map(|p| Parameter {
+                        name: p.name,
+                        value: p.value,
+                    })
+                    .collect(),
+                moq: value.moq,
+                lead_days_min: value.lead_time_days,
+                lead_days_max: value.lead_time_max_days,
+                lead_time_note: value.lead_time_note,
+                notes: value.internal_notes,
+                archived: value.archived,
+            },
+        }
+    }
+}
+
+pub(super) fn read_product(connection: &Connection, id: i64) -> Result<Record<Product>, String> {
+    crate::catalog::read_product(connection, id).map(Into::into)
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -201,11 +235,7 @@ pub fn save_offer(data_dir: PathBuf, input: OfferInput) -> Result<i64, String> {
     let transaction = connection
         .transaction_with_behavior(TransactionBehavior::Immediate)
         .map_err(|error| error.to_string())?;
-    let product: Record<Product> = record(
-        &transaction,
-        "SELECT data FROM products WHERE id=?1",
-        offer.product_id,
-    )?;
+    let product = read_product(&transaction, offer.product_id)?;
     let supplier: Record<Supplier> = record(
         &transaction,
         "SELECT data FROM suppliers WHERE id=?1",

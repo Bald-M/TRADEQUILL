@@ -28,6 +28,8 @@ ttf-parser = "=0.25.1"
 flate2 = "1"
 tauri-plugin-dialog = "=2.7.1"
 tempfile = "3"
+pdf-extract = "0.12"
+sha2 = "0.10"
 
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration

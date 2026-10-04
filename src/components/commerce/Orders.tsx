@@ -1,3 +1,4 @@
+import { SelectInput } from "./Shared";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -29,7 +30,6 @@ import {
   Field,
   SaveForm,
   TextField,
-  fieldClass,
   messageOf,
 } from "./Shared";
 import { QuoteView } from "./Quotes";
@@ -268,26 +268,25 @@ function OrderEditor({
         />
         <Field label="承接报价修订">
           {(id) => (
-            <select
+            <SelectInput
               id={id}
-              className={fieldClass}
-              value={form.sourceQuoteId}
-              onChange={(e) =>
-                setForm({ ...form, sourceQuoteId: Number(e.target.value) })
+              value={String(form.sourceQuoteId)}
+              onValueChange={(value) =>
+                setForm({ ...form, sourceQuoteId: Number(value) })
               }
-            >
-              {snapshot.quotes
-                .filter(
-                  (q) =>
-                    q.seriesId === order.quote.seriesId &&
-                    q.revision >= order.quote.revision,
-                )
-                .map((q) => (
-                  <option key={q.quoteId} value={q.quoteId}>
-                    {q.number} · {q.currency} {q.total}
-                  </option>
-                ))}
-            </select>
+              options={[
+                ...snapshot.quotes
+                  .filter(
+                    (q) =>
+                      q.seriesId === order.quote.seriesId &&
+                      q.revision >= order.quote.revision,
+                  )
+                  .map((q) => ({
+                    value: String(q.quoteId),
+                    label: [q.number, "·", q.currency, q.total].join(""),
+                  })),
+              ]}
+            />
           )}
         </Field>
       </div>
@@ -415,39 +414,46 @@ function CostsForm({
         <div className="min-w-48 flex-1">
           <Field label="调用供货参考价（生成待确认草稿）">
             {(id) => (
-              <select
+              <SelectInput
                 id={id}
-                className={fieldClass}
-                value={reference}
-                onChange={(e) => setReference(e.target.value)}
-              >
-                <option value="">选择产品和供应商参考价</option>
-                {order.quote.lines.flatMap((line, index) =>
-                  snapshot.offers
-                    .filter(
-                      (o) =>
-                        o.productId === line.productId &&
-                        o.active &&
-                        o.price !== null &&
-                        !snapshot.suppliers.find((s) => s.id === o.supplierId)
-                          ?.archived,
-                    )
-                    .map((offer) => (
-                      <option
-                        key={`${index}-${offer.id}`}
-                        value={`${index}:${offer.id}`}
-                      >
-                        {line.product.code} ·{" "}
-                        {
+                value={String(reference)}
+                onValueChange={(value) => setReference(value)}
+                options={[
+                  {
+                    value: String(""),
+                    label: String("选择产品和供应商参考价"),
+                  },
+                  ...order.quote.lines.flatMap((line, index) =>
+                    snapshot.offers
+                      .filter(
+                        (o) =>
+                          o.productId === line.productId &&
+                          o.active &&
+                          o.price !== null &&
+                          !snapshot.suppliers.find((s) => s.id === o.supplierId)
+                            ?.archived,
+                      )
+                      .map((offer) => ({
+                        value: String(`${index}:${offer.id}`),
+                        label: [
+                          line.product.code,
+                          "·",
+                          " ",
                           snapshot.suppliers.find(
                             (s) => s.id === offer.supplierId,
-                          )?.name
-                        }{" "}
-                        · {offer.currency} {offer.price} ({offer.quotedOn})
-                      </option>
-                    )),
-                )}
-              </select>
+                          )?.name,
+                          " ",
+                          "·",
+                          offer.currency,
+                          offer.price,
+                          "(",
+                          offer.quotedOn,
+                          ")",
+                        ].join(""),
+                      })),
+                  ),
+                ]}
+              />
             )}
           </Field>
         </div>
@@ -474,22 +480,21 @@ function CostsForm({
           <div className="grid gap-3 lg:grid-cols-2">
             <Field label={`费用 ${index + 1} 分类`}>
               {(id) => (
-                <select
+                <SelectInput
                   id={id}
-                  className={fieldClass}
-                  value={entry.category}
-                  onChange={(e) =>
+                  value={String(entry.category)}
+                  onValueChange={(value) =>
                     change(index, {
-                      category: e.target.value as CostEntry["category"],
+                      category: value as CostEntry["category"],
                     })
                   }
-                >
-                  {Object.entries(costCategories).map(([key, value]) => (
-                    <option key={key} value={key}>
-                      {value}
-                    </option>
-                  ))}
-                </select>
+                  options={[
+                    ...Object.entries(costCategories).map(([key, value]) => ({
+                      value: String(key),
+                      label: String(value),
+                    })),
+                  ]}
+                />
               )}
             </Field>
             <TextField
@@ -505,23 +510,24 @@ function CostsForm({
             />
             <Field label={`费用 ${index + 1} 币种`}>
               {(id) => (
-                <select
+                <SelectInput
                   id={id}
-                  className={fieldClass}
-                  value={entry.currency}
-                  onChange={(e) =>
+                  value={String(entry.currency)}
+                  onValueChange={(value) =>
                     change(index, {
-                      currency: e.target.value,
+                      currency: value,
                       rate: null,
                       rateOn: null,
                       confirmed: false,
                     })
                   }
-                >
-                  {currencies.map((c) => (
-                    <option key={c}>{c}</option>
-                  ))}
-                </select>
+                  options={[
+                    ...currencies.map((c) => ({
+                      value: String(String(c)),
+                      label: String(c),
+                    })),
+                  ]}
+                />
               )}
             </Field>
             <TextField
@@ -533,55 +539,54 @@ function CostsForm({
             />
             <Field label={`费用 ${index + 1} 供应商`}>
               {(id) => (
-                <select
+                <SelectInput
                   id={id}
-                  className={fieldClass}
-                  value={entry.supplierId ?? ""}
-                  onChange={(e) =>
+                  value={String(entry.supplierId ?? "")}
+                  onValueChange={(value) =>
                     change(index, {
-                      supplierId: e.target.value
-                        ? Number(e.target.value)
-                        : null,
+                      supplierId: value ? Number(value) : null,
                       offerId: null,
                     })
                   }
-                >
-                  <option value="">无供应商</option>
-                  {snapshot.suppliers
-                    .filter((s) => !s.archived || s.id === entry.supplierId)
-                    .map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name}
-                        {s.archived ? "（已归档）" : ""}
-                      </option>
-                    ))}
-                </select>
+                  options={[
+                    { value: String(""), label: String("无供应商") },
+                    ...snapshot.suppliers
+                      .filter((s) => !s.archived || s.id === entry.supplierId)
+                      .map((s) => ({
+                        value: String(s.id),
+                        label: [s.name, s.archived ? "（已归档）" : ""].join(
+                          "",
+                        ),
+                      })),
+                  ]}
+                />
               )}
             </Field>
             <Field label={`费用 ${index + 1} 关联产品`}>
               {(id) => (
-                <select
+                <SelectInput
                   id={id}
-                  className={fieldClass}
-                  value={entry.productId ?? ""}
-                  onChange={(e) =>
+                  value={String(entry.productId ?? "")}
+                  onValueChange={(value) =>
                     change(index, {
-                      productId: e.target.value ? Number(e.target.value) : null,
+                      productId: value ? Number(value) : null,
                       offerId: null,
                     })
                   }
-                >
-                  <option value="">订单级费用</option>
-                  {Array.from(
-                    new Map(
-                      order.quote.lines.map((l) => [l.productId, l]),
-                    ).values(),
-                  ).map((line) => (
-                    <option key={line.productId} value={line.productId}>
-                      {line.product.code} · {line.product.name}
-                    </option>
-                  ))}
-                </select>
+                  options={[
+                    { value: String(""), label: String("订单级费用") },
+                    ...Array.from(
+                      new Map(
+                        order.quote.lines.map((l) => [l.productId, l]),
+                      ).values(),
+                    ).map((line) => ({
+                      value: String(line.productId),
+                      label: [line.product.code, "·", line.product.name].join(
+                        "",
+                      ),
+                    })),
+                  ]}
+                />
               )}
             </Field>
             {entry.currency !== order.quote.currency && (
@@ -769,36 +774,34 @@ export function Orders({
       <div className="grid gap-3 lg:grid-cols-2">
         <Field label="按客户筛选订单">
           {(id) => (
-            <select
+            <SelectInput
               id={id}
-              className={fieldClass}
-              value={customer}
-              onChange={(e) => setCustomer(e.target.value)}
-            >
-              <option value="">全部客户</option>
-              {business.customers.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
+              value={String(customer)}
+              onValueChange={(value) => setCustomer(value)}
+              options={[
+                { value: String(""), label: String("全部客户") },
+                ...business.customers.map((c) => ({
+                  value: String(c.id),
+                  label: String(c.name),
+                })),
+              ]}
+            />
           )}
         </Field>
         <Field label="订单状态">
           {(id) => (
-            <select
+            <SelectInput
               id={id}
-              className={fieldClass}
-              value={status}
-              onChange={(e) => setStatus(e.target.value)}
-            >
-              <option value="">全部状态</option>
-              {Object.entries(orderStatuses).map(([key, value]) => (
-                <option key={key} value={key}>
-                  {value}
-                </option>
-              ))}
-            </select>
+              value={String(status)}
+              onValueChange={(value) => setStatus(value)}
+              options={[
+                { value: String(""), label: String("全部状态") },
+                ...Object.entries(orderStatuses).map(([key, value]) => ({
+                  value: String(key),
+                  label: String(value),
+                })),
+              ]}
+            />
           )}
         </Field>
         <TextField

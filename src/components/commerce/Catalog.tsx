@@ -1,3 +1,4 @@
+import { SelectInput } from "./Shared";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -18,14 +19,7 @@ import {
   type Offer,
   type OfferFields,
 } from "@/lib/commerce";
-import {
-  ActionButton,
-  Empty,
-  Field,
-  SaveForm,
-  TextField,
-  fieldClass,
-} from "./Shared";
+import { ActionButton, Empty, Field, SaveForm, TextField } from "./Shared";
 
 type Props = {
   snapshot: CommerceSnapshot;
@@ -102,6 +96,12 @@ export function ProductFieldsEditor({
           type="number"
           value={value.leadDaysMax?.toString() ?? ""}
           onChange={(v) => set("leadDaysMax", v === "" ? null : Number(v))}
+        />
+        <TextField
+          label="交期含义"
+          value={value.leadTimeNote ?? "确认订单后"}
+          onChange={(v) => set("leadTimeNote", v)}
+          hint="沿用产品的起算条件；本次报价可单独调整。"
         />
       </div>
       <fieldset className="space-y-3">
@@ -655,48 +655,41 @@ function OfferForm({
       <div className="grid gap-3 lg:grid-cols-2">
         <Field label="产品 *">
           {(id) => (
-            <select
+            <SelectInput
               id={id}
-              className={fieldClass}
-              value={form.productId}
+              value={String(form.productId)}
               disabled={!!productId || !!offer}
-              onChange={(e) =>
-                setForm({ ...form, productId: Number(e.target.value) })
+              onValueChange={(value) =>
+                setForm({ ...form, productId: Number(value) })
               }
-              required
-            >
-              <option value={0}>选择产品</option>
-              {snapshot.products
-                .filter((p) => !p.archived || p.id === form.productId)
-                .map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.code} · {p.name}
-                  </option>
-                ))}
-            </select>
+              options={[
+                { value: String(0), label: String("选择产品") },
+                ...snapshot.products
+                  .filter((p) => !p.archived || p.id === form.productId)
+                  .map((p) => ({
+                    value: String(p.id),
+                    label: [p.code, "·", p.name].join(""),
+                  })),
+              ]}
+            />
           )}
         </Field>
         <Field label="供应商 *">
           {(id) => (
-            <select
+            <SelectInput
               id={id}
-              className={fieldClass}
-              value={form.supplierId}
+              value={String(form.supplierId)}
               disabled={!!supplierId || !!offer}
-              onChange={(e) =>
-                setForm({ ...form, supplierId: Number(e.target.value) })
+              onValueChange={(value) =>
+                setForm({ ...form, supplierId: Number(value) })
               }
-              required
-            >
-              <option value={0}>选择供应商</option>
-              {snapshot.suppliers
-                .filter((s) => !s.archived || s.id === form.supplierId)
-                .map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-            </select>
+              options={[
+                { value: String(0), label: String("选择供应商") },
+                ...snapshot.suppliers
+                  .filter((s) => !s.archived || s.id === form.supplierId)
+                  .map((s) => ({ value: String(s.id), label: String(s.name) })),
+              ]}
+            />
           )}
         </Field>
         <TextField
@@ -712,16 +705,17 @@ function OfferForm({
         />
         <Field label="参考价币种">
           {(id) => (
-            <select
+            <SelectInput
               id={id}
-              className={fieldClass}
-              value={form.currency}
-              onChange={(e) => setForm({ ...form, currency: e.target.value })}
-            >
-              {currencies.map((c) => (
-                <option key={c}>{c}</option>
-              ))}
-            </select>
+              value={String(form.currency)}
+              onValueChange={(value) => setForm({ ...form, currency: value })}
+              options={[
+                ...currencies.map((c) => ({
+                  value: String(String(c)),
+                  label: String(c),
+                })),
+              ]}
+            />
           )}
         </Field>
         <TextField

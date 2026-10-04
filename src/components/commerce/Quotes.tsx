@@ -1,3 +1,4 @@
+import { SelectInput } from "./Shared";
 import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -18,14 +19,7 @@ import {
   type QuoteDocument,
   type QuoteFields,
 } from "@/lib/commerce";
-import {
-  ActionButton,
-  Empty,
-  Field,
-  SaveForm,
-  TextField,
-  fieldClass,
-} from "./Shared";
+import { ActionButton, Empty, Field, SaveForm, TextField } from "./Shared";
 import { ProductFieldsEditor } from "./Catalog";
 
 type Props = {
@@ -217,48 +211,45 @@ function QuoteForm({
       <div className="grid gap-4 lg:grid-cols-2">
         <Field label="客户 *">
           {(id) => (
-            <select
+            <SelectInput
               id={id}
-              className={fieldClass}
-              value={form.customerId}
+              value={String(form.customerId)}
               disabled={!!previous || !!legacy}
-              onChange={(e) =>
+              onValueChange={(value) =>
                 setForm({
                   ...form,
-                  customerId: Number(e.target.value),
+                  customerId: Number(value),
                   inquiryId: null,
                 })
               }
-              required
-            >
-              <option value={0}>选择客户</option>
-              {business.customers.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name} · {c.company}
-                </option>
-              ))}
-            </select>
+              options={[
+                { value: String(0), label: String("选择客户") },
+                ...business.customers.map((c) => ({
+                  value: String(c.id),
+                  label: [c.name, "·", c.company].join(""),
+                })),
+              ]}
+            />
           )}
         </Field>
         <Field label="关联询盘">
           {(id) => (
-            <select
+            <SelectInput
               id={id}
-              className={fieldClass}
-              value={form.inquiryId ?? ""}
-              onChange={(e) =>
-                set("inquiryId", e.target.value ? Number(e.target.value) : null)
+              value={String(form.inquiryId ?? "")}
+              onValueChange={(value) =>
+                set("inquiryId", value ? Number(value) : null)
               }
-            >
-              <option value="">不关联询盘</option>
-              {business.inquiries
-                .filter((i) => i.customerId === form.customerId)
-                .map((i) => (
-                  <option key={i.id} value={i.id}>
-                    {i.receivedOn} · {i.content.slice(0, 60)}
-                  </option>
-                ))}
-            </select>
+              options={[
+                { value: String(""), label: String("不关联询盘") },
+                ...business.inquiries
+                  .filter((i) => i.customerId === form.customerId)
+                  .map((i) => ({
+                    value: String(i.id),
+                    label: [i.receivedOn, "·", i.content.slice(0, 60)].join(""),
+                  })),
+              ]}
+            />
           )}
         </Field>
         <TextField
@@ -292,19 +283,18 @@ function QuoteForm({
           <div className="min-w-40 flex-1">
             <Field label="添加产品">
               {(id) => (
-                <select
+                <SelectInput
                   id={id}
-                  className={fieldClass}
-                  value={selectedProduct}
-                  onChange={(e) => setSelectedProduct(Number(e.target.value))}
-                >
-                  <option value={0}>选择产品</option>
-                  {products.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.code} · {p.name}
-                    </option>
-                  ))}
-                </select>
+                  value={String(selectedProduct)}
+                  onValueChange={(value) => setSelectedProduct(Number(value))}
+                  options={[
+                    { value: String(0), label: String("选择产品") },
+                    ...products.map((p) => ({
+                      value: String(p.id),
+                      label: [p.code, "·", p.name].join(""),
+                    })),
+                  ]}
+                />
               )}
             </Field>
           </div>
@@ -409,16 +399,17 @@ function QuoteForm({
       <div className="grid gap-4 lg:grid-cols-2">
         <Field label="报价币种">
           {(id) => (
-            <select
+            <SelectInput
               id={id}
-              className={fieldClass}
-              value={form.currency}
-              onChange={(e) => set("currency", e.target.value)}
-            >
-              {currencies.map((c) => (
-                <option key={c}>{c}</option>
-              ))}
-            </select>
+              value={String(form.currency)}
+              onValueChange={(value) => set("currency", value)}
+              options={[
+                ...currencies.map((c) => ({
+                  value: String(String(c)),
+                  label: String(c),
+                })),
+              ]}
+            />
           )}
         </Field>
         {(
@@ -499,19 +490,18 @@ export function Quotes(props: Props) {
             <div className="min-w-48 flex-1">
               <Field label="按客户筛选报价">
                 {(id) => (
-                  <select
+                  <SelectInput
                     id={id}
-                    className={fieldClass}
-                    value={customerId}
-                    onChange={(e) => setCustomerId(e.target.value)}
-                  >
-                    <option value="">全部客户</option>
-                    {business.customers.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </select>
+                    value={String(customerId)}
+                    onValueChange={(value) => setCustomerId(value)}
+                    options={[
+                      { value: String(""), label: String("全部客户") },
+                      ...business.customers.map((c) => ({
+                        value: String(c.id),
+                        label: String(c.name),
+                      })),
+                    ]}
+                  />
                 )}
               </Field>
             </div>

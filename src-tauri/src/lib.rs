@@ -1,3 +1,4 @@
+mod catalog;
 mod quote_pdf;
 mod storage;
 use tauri_plugin_dialog::DialogExt;
@@ -135,7 +136,10 @@ async fn commerce_snapshot(app: tauri::AppHandle) -> Result<commerce::CommerceSn
 }
 
 #[tauri::command]
-async fn save_product(app: tauri::AppHandle, input: commerce::ProductInput) -> Result<i64, String> {
+async fn save_commerce_product(
+    app: tauri::AppHandle,
+    input: commerce::ProductInput,
+) -> Result<i64, String> {
     let data_dir = app_data_dir(&app)?;
     tauri::async_runtime::spawn_blocking(move || commerce::save_product(data_dir, input))
         .await
@@ -302,7 +306,115 @@ async fn export_quote_pdf(app: tauri::AppHandle, quote_id: i64) -> Result<Option
     .map_err(|error| format!("PDF 导出任务失败：{error}"))?
 }
 
+async fn catalog_task<T: Send + 'static>(
+    app: tauri::AppHandle,
+    operation: impl FnOnce(std::path::PathBuf) -> Result<T, String> + Send + 'static,
+) -> Result<T, String> {
+    let data_dir = app_data_dir(&app)?;
+    tauri::async_runtime::spawn_blocking(move || operation(data_dir))
+        .await
+        .map_err(|_| "本地资料任务未完成，请重试。".to_string())?
+}
+
+#[tauri::command]
+async fn list_catalog(app: tauri::AppHandle) -> Result<catalog::CatalogSnapshot, String> {
+    catalog_task(app, catalog::list_catalog).await
+}
+
+#[tauri::command]
+async fn save_product(
+    app: tauri::AppHandle,
+    input: catalog::ProductInput,
+) -> Result<catalog::ProductRecord, String> {
+    catalog_task(app, move |path| catalog::save_product(path, input)).await
+}
+
+#[tauri::command]
+async fn set_product_archived(
+    app: tauri::AppHandle,
+    product_id: i64,
+    archived: bool,
+) -> Result<(), String> {
+    catalog_task(app, move |path| {
+        catalog::set_product_archived(path, product_id, archived)
+    })
+    .await
+}
+
+#[tauri::command]
+async fn preview_knowledge_import(
+    app: tauri::AppHandle,
+    input: catalog::FileImportInput,
+) -> Result<catalog::ImportPreview, String> {
+    catalog_task(app, move |path| {
+        catalog::preview_knowledge_import(path, input)
+    })
+    .await
+}
+
+#[tauri::command]
+async fn save_knowledge(
+    app: tauri::AppHandle,
+    input: catalog::KnowledgeInput,
+) -> Result<catalog::KnowledgeSummary, String> {
+    catalog_task(app, move |path| catalog::save_knowledge(path, input)).await
+}
+
+#[tauri::command]
+async fn get_knowledge_document(
+    app: tauri::AppHandle,
+    document_id: i64,
+) -> Result<catalog::KnowledgeDetail, String> {
+    catalog_task(app, move |path| {
+        catalog::get_knowledge_document(path, document_id)
+    })
+    .await
+}
+
+#[tauri::command]
+async fn set_knowledge_archived(
+    app: tauri::AppHandle,
+    document_id: i64,
+    archived: bool,
+) -> Result<(), String> {
+    catalog_task(app, move |path| {
+        catalog::set_knowledge_archived(path, document_id, archived)
+    })
+    .await
+}
+
+#[tauri::command]
+async fn delete_knowledge(app: tauri::AppHandle, document_id: i64) -> Result<(), String> {
+    catalog_task(app, move |path| {
+        catalog::delete_knowledge(path, document_id)
+    })
+    .await
+}
+
+#[tauri::command]
+async fn search_knowledge(
+    app: tauri::AppHandle,
+    input: catalog::KnowledgeSearchInput,
+) -> Result<Vec<catalog::KnowledgeSnippet>, String> {
+    catalog_task(app, move |path| catalog::search_knowledge(path, input)).await
+}
+
+#[tauri::command]
+async fn check_knowledge_reference(
+    app: tauri::AppHandle,
+    document_id: i64,
+    version: i64,
+) -> Result<String, String> {
+    catalog_task(app, move |path| {
+        catalog::check_knowledge_reference(path, document_id, version)
+    })
+    .await
+}
+
 pub fn run() {
+    if catalog::maybe_run_pdf_worker() {
+        return;
+    }
     tauri::Builder::default()
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_dialog::init())
@@ -321,7 +433,7 @@ pub fn run() {
             due_reminder,
             mark_reminder_sent,
             commerce_snapshot,
-            save_product,
+            save_commerce_product,
             save_supplier,
             save_offer,
             save_seller,
@@ -334,6 +446,16 @@ pub fn run() {
             order_history,
             draft_cost_from_offer,
             order_report,
+            list_catalog,
+            save_product,
+            set_product_archived,
+            preview_knowledge_import,
+            save_knowledge,
+            get_knowledge_document,
+            set_knowledge_archived,
+            delete_knowledge,
+            search_knowledge,
+            check_knowledge_reference,
         ])
         .run(tauri::generate_context!())
         .expect("error while running TradeQuill");

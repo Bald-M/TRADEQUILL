@@ -108,7 +108,14 @@ fn content(quote: &QuoteDocument, layout: &mut Layout<'_>) -> Result<(), String>
         }
         let moq = line.product.moq.as_deref().unwrap_or("未知 / Unknown");
         let lead = match (line.product.lead_days_min, line.product.lead_days_max) {
-            (Some(min), Some(max)) => format!("{min}-{max} 天 / days after order confirmation"),
+            (Some(min), Some(max)) => format!(
+                "{min}-{max} 天 / days ({})",
+                if line.product.lead_time_note.is_empty() {
+                    "确认订单后 / after order confirmation"
+                } else {
+                    &line.product.lead_time_note
+                }
+            ),
             _ => "未知 / Unknown".into(),
         };
         layout.paragraph(

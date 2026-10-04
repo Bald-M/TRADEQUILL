@@ -23,6 +23,7 @@ fn product(code: &str) -> Product {
         moq: Some("10".into()),
         lead_days_min: Some(5),
         lead_days_max: Some(10),
+        lead_time_note: "确认订单后".into(),
         notes: "INTERNAL PRODUCT NOTE".into(),
         archived: false,
     }
@@ -235,7 +236,7 @@ fn catalog_validates_duplicates_archives_and_preserves_independent_suppliers() {
     .unwrap();
     let snapshot = commerce_snapshot(root.0.clone()).unwrap();
     assert_eq!(snapshot.offers.len(), 2);
-    assert_eq!(snapshot.products[0].data.moq.as_deref(), Some("10.000"));
+    assert_eq!(snapshot.products[0].data.moq.as_deref(), Some("10"));
     let mut broken = offer.clone();
     broken.product_id = 9999;
     assert!(save_offer(
@@ -701,7 +702,7 @@ fn reports_separate_currencies_estimates_missing_rates_zero_revenue_and_cancelle
 }
 
 #[test]
-fn schema_three_migration_is_atomic_and_preserves_schema_two_on_failure() {
+fn schema_four_migration_is_atomic_and_preserves_schema_two_on_failure() {
     let root = TempData::new();
     fs::create_dir_all(&root.0).unwrap();
     let connection = Connection::open(root.0.join("tradequill.sqlite3")).unwrap();
@@ -738,7 +739,7 @@ fn schema_three_migration_is_atomic_and_preserves_schema_two_on_failure() {
         .execute_batch("DROP TABLE quote_versions")
         .unwrap();
     drop(connection);
-    assert_eq!(initialize(root.0.clone()).unwrap().schema_version, 3);
+    assert_eq!(initialize(root.0.clone()).unwrap().schema_version, 4);
 }
 
 #[test]
@@ -781,4 +782,165 @@ fn quotation_pdf_uses_saved_amounts_and_handles_multipage_and_export_failures() 
     assert!(crate::quote_pdf::render(&document)
         .unwrap_err()
         .contains("不支持"));
+}
+
+fn catalog_schema_three() -> TempData {
+    let root = TempData::new();
+    fs::create_dir_all(&root.0).unwrap();
+    let connection = Connection::open(root.0.join("tradequill.sqlite3")).unwrap();
+    connection
+        .execute_batch(include_str!("../fixtures/schema_v2.sql"))
+        .unwrap();
+    connection
+        .execute_batch(include_str!("../fixtures/catalog_schema3.sql"))
+        .unwrap();
+    connection.execute_batch("INSERT INTO products(id,sku,name,unit,parameters_json,moq,lead_time_days,lead_time_note,created_at,updated_at) VALUES (42,'MAIN-SKU','Released product','pcs','[{\"name\":\"材质\",\"value\":\"Steel\"}]','10.5',14,'收到订金后','2026-10-01','2026-10-02');
+        INSERT INTO knowledge_documents(id,title,product_id,tags_json,source,kind,status,visibility,current_version) VALUES (7,'Manual',42,'[]','Synthetic','file','confirmed','public',1);
+        INSERT INTO knowledge_versions(document_id,version,format,file_name,digest,file_bytes) VALUES (7,1,'txt','manual.txt','synthetic',X'68656c6c6f');
+        INSERT INTO knowledge_pages(document_id,version,page,text) VALUES (7,1,1,'hello');").unwrap();
+    root
+}
+
+#[test]
+fn catalog_schema_three_upgrades_with_shared_ids_knowledge_and_transaction_snapshots() {
+    let root = catalog_schema_three();
+    for _ in 0..2 {
+        assert_eq!(initialize(root.0.clone()).unwrap().schema_version, 4);
+    }
+    let mut catalog = crate::catalog::list_catalog(root.0.clone()).unwrap();
+    let original = catalog.products.remove(0);
+    assert_eq!(original.id, 42);
+    assert_eq!(original.lead_time_max_days, Some(14));
+    assert_eq!(original.updated_at, "2026-10-02");
+    assert_eq!(catalog.documents[0].product_id, Some(42));
+    let before = commerce_snapshot(root.0.clone())
+        .unwrap()
+        .products
+        .remove(0);
+    assert_eq!(before.id, 42);
+    assert_eq!(before.data.code, "MAIN-SKU");
+    assert_eq!(before.data.lead_time_note, "收到订金后");
+    let mut quote = quotation(42, "shared-main-product");
+    quote.fields.lines[0].product = before.data.clone();
+    let quote_id = save_structured_quote(root.0.clone(), quote).unwrap();
+    let order_id = create_order(root.0.clone(), quote_id, "2026-10-04".into()).unwrap();
+    let mut changed = before.data;
+    changed.name = "Changed via commerce".into();
+    changed.lead_days_max = Some(21);
+    changed.notes = "INTERNAL ONLY".into();
+    save_product(
+        root.0.clone(),
+        ProductInput {
+            id: Some(42),
+            data: changed,
+        },
+    )
+    .unwrap();
+    let updated = crate::catalog::list_catalog(root.0.clone())
+        .unwrap()
+        .products
+        .remove(0);
+    assert_eq!(updated.name, "Changed via commerce");
+    assert_eq!(updated.lead_time_max_days, Some(21));
+    crate::catalog::save_product(
+        root.0.clone(),
+        crate::catalog::ProductInput {
+            id: Some(42),
+            sku: updated.sku,
+            name: "Changed via knowledge catalog".into(),
+            unit: updated.unit,
+            parameters: updated.parameters,
+            moq: updated.moq,
+            lead_time_days: updated.lead_time_days,
+            lead_time_max_days: updated.lead_time_max_days,
+            lead_time_note: updated.lead_time_note,
+        },
+    )
+    .unwrap();
+    let shared = commerce_snapshot(root.0.clone())
+        .unwrap()
+        .products
+        .remove(0);
+    assert_eq!(shared.data.name, "Changed via knowledge catalog");
+    assert_eq!(shared.data.notes, "INTERNAL ONLY");
+    assert_eq!(shared.data.lead_time_note, "收到订金后");
+    crate::catalog::set_product_archived(root.0.clone(), 42, true).unwrap();
+    assert!(
+        commerce_snapshot(root.0.clone()).unwrap().products[0]
+            .data
+            .archived
+    );
+    assert!(save_structured_quote(root.0.clone(), quotation(42, "archived-new")).is_err());
+    assert_eq!(
+        get_quote_document(root.0.clone(), quote_id)
+            .unwrap()
+            .fields
+            .lines[0]
+            .product
+            .name,
+        "Released product"
+    );
+    assert_eq!(
+        order(&root, order_id).data.quote.fields.lines[0]
+            .product
+            .lead_days_max,
+        Some(14)
+    );
+    let connection = open(root.0.clone()).unwrap();
+    assert_eq!(
+        connection
+            .query_row(
+                "SELECT file_bytes FROM knowledge_versions WHERE document_id=7",
+                [],
+                |r| r.get::<_, Vec<u8>>(0)
+            )
+            .unwrap(),
+        b"hello"
+    );
+    assert_eq!(
+        connection
+            .query_row("SELECT count(*) FROM pragma_foreign_key_check", [], |r| r
+                .get::<_, i64>(
+                0
+            ))
+            .unwrap(),
+        0
+    );
+    assert_eq!(
+        connection
+            .query_row("SELECT count(*) FROM products", [], |r| r.get::<_, i64>(0))
+            .unwrap(),
+        1
+    );
+}
+
+#[test]
+fn schema_four_failure_rolls_back_product_columns_and_preserves_knowledge() {
+    let root = catalog_schema_three();
+    let connection = Connection::open(root.0.join("tradequill.sqlite3")).unwrap();
+    connection
+        .execute_batch(
+            "CREATE TABLE suppliers(marker TEXT); INSERT INTO suppliers VALUES ('keep');",
+        )
+        .unwrap();
+    assert!(initialize(root.0.clone()).is_err());
+    assert_eq!(
+        connection
+            .pragma_query_value(None, "user_version", |r| r.get::<_, i64>(0))
+            .unwrap(),
+        3
+    );
+    assert_eq!(connection.query_row("SELECT count(*) FROM pragma_table_info('products') WHERE name='lead_time_max_days'",[],|r|r.get::<_,i64>(0)).unwrap(),0);
+    assert_eq!(
+        connection
+            .query_row(
+                "SELECT text FROM knowledge_pages WHERE document_id=7",
+                [],
+                |r| r.get::<_, String>(0)
+            )
+            .unwrap(),
+        "hello"
+    );
+    connection.execute_batch("DROP TABLE suppliers;").unwrap();
+    assert_eq!(initialize(root.0.clone()).unwrap().schema_version, 4);
 }

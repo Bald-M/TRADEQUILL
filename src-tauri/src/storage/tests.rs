@@ -48,6 +48,69 @@ fn first_customer_id(root: &TempData) -> i64 {
         .id
 }
 
+fn legacy_schema2(root: &TempData) -> Connection {
+    fs::create_dir_all(&root.0).expect("legacy data directory");
+    let connection =
+        configured_connection(&root.0.join("tradequill.sqlite3")).expect("legacy database");
+    connection
+        .execute_batch(include_str!("fixtures/schema2.sql"))
+        .expect("schema 2 fixture");
+    connection
+        .execute(
+            "INSERT INTO customers (name, company) VALUES ('Legacy contact', 'Legacy company')",
+            [],
+        )
+        .expect("legacy customer");
+    connection
+        .execute("INSERT INTO inquiries (customer_id, received_on, content, source, country, products_json, stage) VALUES (1, '2026-09-27', 'Existing inquiry', 'Manual', 'US', '[\"Free text product\"]', 'new')", [])
+        .expect("legacy inquiry");
+    connection
+}
+
+#[test]
+fn upgrades_schema2_without_changing_existing_business_data() {
+    let root = TempData::new();
+    drop(legacy_schema2(&root));
+    initialize(root.0.clone()).expect("upgrade schema 2");
+    let snapshot = business_snapshot(root.0.clone()).expect("old business remains readable");
+    assert_eq!(snapshot.customers[0].name, "Legacy contact");
+    assert_eq!(snapshot.inquiries[0].products, vec!["Free text product"]);
+    assert_eq!(snapshot.inquiries[0].content, "Existing inquiry");
+    initialize(root.0.clone()).expect("second startup");
+    assert_eq!(
+        business_snapshot(root.0.clone()).unwrap().customers.len(),
+        1
+    );
+}
+
+#[test]
+fn extension_migration_failure_rolls_back_schema_and_new_tables() {
+    let root = TempData::new();
+    let connection = legacy_schema2(&root);
+    connection
+        .execute("CREATE TABLE knowledge_pages (conflict TEXT)", [])
+        .expect("simulate incompatible table");
+    drop(connection);
+    assert!(
+        initialize(root.0.clone()).is_err(),
+        "migration should reject incompatible table"
+    );
+    let connection =
+        configured_connection(&root.0.join("tradequill.sqlite3")).expect("inspect after rollback");
+    let version: i64 = connection
+        .pragma_query_value(None, "user_version", |row| row.get(0))
+        .unwrap();
+    assert_eq!(version, 2);
+    let new_tables: i64 = connection.query_row("SELECT count(*) FROM sqlite_master WHERE name IN ('products', 'knowledge_documents', 'knowledge_versions')", [], |row| row.get(0)).unwrap();
+    assert_eq!(new_tables, 0);
+    let customer_name: String = connection
+        .query_row("SELECT name FROM customers WHERE id = 1", [], |row| {
+            row.get(0)
+        })
+        .unwrap();
+    assert_eq!(customer_name, "Legacy contact");
+}
+
 #[test]
 fn migrates_and_persists_complete_customer_workflow() {
     let root = TempData::new();

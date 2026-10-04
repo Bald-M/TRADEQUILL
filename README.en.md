@@ -38,9 +38,11 @@
 
 ## Current scope
 
-TradeQuill now provides its first complete local workflow: customer records, inquiry capture with four-dimensional combined filtering, quote history, sample progress history, follow-up calendar, today/overdue lists, and a daily system reminder. The trading workspace adds product/supplier catalogs, versioned quotations and offline bilingual PDFs, quote-to-order conversion, cost/profit calculations and period reports. Rules are documented in [the customer workflow](docs/customer-workflow.md) and [the trading workflow](docs/commerce-workflow.md) (Chinese).
+TradeQuill now provides its first complete local workflow: customer records, inquiry capture with four-dimensional combined filtering, quote history, sample progress history, follow-up calendar, today/overdue lists, and a daily system reminder. The detailed behavior is documented in [the customer workflow](docs/customer-workflow.md) (Chinese). Product records and the lightweight knowledge library add parameters, MOQ, lead time, text/FAQ entries, previewed TXT/Markdown/text-PDF imports, local search, and version management. See [the catalog workflow](docs/catalog-workflow.md) (Chinese).
 
 Data import/export and full backups remain clearly labeled placeholders. The first version does not integrate AI, cloud synchronization, telemetry, or remote fonts, and it requires no database server. The app does not run in the background after it is fully closed, so reminders are recalculated when it is opened again.
+
+Suppliers, structured quotations/PDF, orders, cost/profit calculations and period reports share the product catalog. See [commerce workflow](docs/commerce-workflow.md).
 
 ## Development environment
 
@@ -88,6 +90,8 @@ pnpm exec shadcn add input dialog table
 
 - `src/App.tsx`: desktop navigation, home screen, business state loading, and settings.
 - `src/components/business/`: customer cards, inquiry/quote/sample forms, follow-up lists, and calendar UI.
+- `src/components/catalog/`: product records, knowledge import previews, versions, and local search.
+- `src-tauri/src/catalog.rs`: product/document validation, bounded PDF parsing, managed copies, and versions.
 - `src/components/ui/`: shadcn component source code, maintained as needed for the project.
 - `src/hooks/`: interface state logic.
 - `src/lib/workspace.ts` and `src/lib/business.ts`: typed Tauri IPC boundaries; browser previews do not simulate a successful database connection.
@@ -106,7 +110,7 @@ Tauri uses the `com.tradequill.desktop` identifier to determine the application 
 - macOS: `~/Library/Application Support/com.tradequill.desktop/`.
 - Windows: `%APPDATA%/com.tradequill.desktop/`.
 
-The directory contains `tradequill.sqlite3` and `attachments/`. Schema 3 stores customers, inquiries, quotation revisions, sample progress, follow-up tasks, daily reminder deduplication records, products, suppliers, supply references, and orders with cost and audit snapshots. Migrations use transactions and `PRAGMA user_version`; data with a schema version newer than the application supports is rejected rather than overwritten or downgraded. Restarting the application does not clear existing data. The database currently has no application-level encryption.
+The directory contains `tradequill.sqlite3` and `attachments/`. Schema 4 preserves customers, inquiries, quotes, sample progress, follow-up tasks, and daily reminder records, and adds product records and the lightweight knowledge library. Original document copies, extracted text, and versions are stored in SQLite; deletion clears managed content transactionally. Migrations use transactions and `PRAGMA user_version`; data with a schema version newer than the application supports is rejected rather than overwritten or downgraded. Restarting the application does not clear existing data. The database currently has no application-level encryption.
 
 Theme preferences are stored in the local WebView's localStorage. Business data is accessed in SQLite only through Rust. For a temporary manual backup, fully exit the application and then copy the entire application data directory. Future CSV/Excel exports will not replace a full backup that includes attachments.
 

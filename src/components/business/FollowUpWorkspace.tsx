@@ -6,10 +6,12 @@ import {
   Clock3,
   Pencil,
 } from "lucide-react";
+import { DateTimeField } from "@/components/ui/date-time-field";
+import { isDateValue } from "@/lib/date-input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { TaskForm, fieldClass } from "@/components/business/BusinessForms";
+import { TaskForm } from "@/components/business/BusinessForms";
 import {
   localDateValue,
   setFollowUpTaskCompleted,
@@ -62,8 +64,9 @@ export function FollowUpWorkspace({
       ),
     [snapshot.tasks, today],
   );
-  const calendarTasks = snapshot.tasks.filter((task) =>
-    task.dueAt.startsWith(calendarDate),
+  const calendarTasks = snapshot.tasks.filter(
+    (task) =>
+      isDateValue(calendarDate) && task.dueAt.slice(0, 10) === calendarDate,
   );
   const editingCustomer = editingTask
     ? snapshot.customers.find(
@@ -334,12 +337,10 @@ export function FollowUpWorkspace({
             <CardTitle className="text-base">按日期查看</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <input
-              aria-label="日历日期"
-              type="date"
+            <DateTimeField
+              label="日历日期"
               value={calendarDate}
-              onChange={(event) => setCalendarDate(event.target.value)}
-              className={fieldClass}
+              onChange={setCalendarDate}
             />
             <div className="space-y-2">
               {calendarTasks.length ? (
@@ -348,7 +349,9 @@ export function FollowUpWorkspace({
                 ))
               ) : (
                 <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
-                  这一天没有安排。
+                  {isDateValue(calendarDate)
+                    ? "这一天没有安排。"
+                    : "请选择有效日期查看安排。"}
                 </p>
               )}
             </div>

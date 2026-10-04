@@ -19,7 +19,8 @@ import {
 } from "@/lib/commerce";
 import type { BusinessSnapshot } from "@/lib/business";
 import { CommerceWorkspace } from "./CommerceWorkspace";
-import { SaveForm } from "./Shared";
+import { SaveForm, SelectInput, TextField } from "./Shared";
+import { chooseSelectOption } from "@/test/select";
 
 vi.mock("@/lib/commerce", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/commerce")>();
@@ -146,7 +147,7 @@ describe("commerce persistence and recovery", () => {
       />,
     );
     await user.type(screen.getByLabelText("有效期 *"), "2026-12-31");
-    await user.selectOptions(screen.getByLabelText("添加产品"), "1");
+    await chooseSelectOption("添加产品", "P-01·Widget");
     await user.click(screen.getByRole("button", { name: "加入明细" }));
     await user.clear(screen.getByLabelText("明细 1 数量 *"));
     await user.type(screen.getByLabelText("明细 1 数量 *"), "0.125");
@@ -404,17 +405,17 @@ describe("review regressions", () => {
       await user.click(second);
       expect(
         screen.getByLabelText(kind === "products" ? "产品 *" : "供应商 *"),
-      ).toHaveValue(kind === "products" ? "1" : "21");
+      ).toHaveTextContent(kind === "products" ? "P-01·Widget" : "Supplier A");
       await user.click(screen.getByRole("button", { name: "取消并放弃输入" }));
       await user.click(second);
       await user.click(screen.getByRole("button", { name: "关联供货资料" }));
       expect(
         screen.getByLabelText(kind === "products" ? "产品 *" : "供应商 *"),
-      ).toHaveValue(kind === "products" ? "2" : "22");
+      ).toHaveTextContent(kind === "products" ? "P-02·Second" : "Supplier B");
       expect(screen.getByLabelText("供应商货号")).toHaveValue("");
-      await user.selectOptions(
-        screen.getByLabelText(kind === "products" ? "供应商 *" : "产品 *"),
-        kind === "products" ? "21" : "1",
+      await chooseSelectOption(
+        kind === "products" ? "供应商 *" : "产品 *",
+        kind === "products" ? "Supplier A" : "P-01·Widget",
       );
       await user.click(screen.getByRole("button", { name: "保存" }));
       await waitFor(() => expect(saveOffer).toHaveBeenCalledOnce());
@@ -488,4 +489,49 @@ describe("review regressions", () => {
       });
     },
   );
+});
+
+it("keeps shared select and calendar controls disabled after a committed save until refresh succeeds", async () => {
+  const refresh = vi
+    .fn()
+    .mockRejectedValueOnce(new Error("refresh failed"))
+    .mockResolvedValue(undefined);
+  const save = vi.fn().mockResolvedValue(undefined);
+  const change = vi.fn();
+  const user = userEvent.setup();
+  render(
+    <SaveForm save={save} refresh={refresh} onDone={vi.fn()} onCancel={vi.fn()}>
+      <label htmlFor="currency">币种</label>
+      <SelectInput
+        id="currency"
+        value="USD"
+        onValueChange={change}
+        options={[
+          { value: "USD", label: "USD" },
+          { value: "EUR", label: "EUR" },
+        ]}
+      />
+      <TextField
+        label="费用日期"
+        type="date"
+        value="2026-10-04"
+        onChange={change}
+      />
+    </SaveForm>,
+  );
+  const select = screen.getByRole("combobox", { name: "币种" });
+  select.focus();
+  await user.keyboard("{ArrowDown}{End}{Enter}");
+  expect(change).toHaveBeenCalledWith("EUR");
+  const calendar = screen.getByRole("button", { name: "选择费用日期" });
+  await user.click(calendar);
+  await user.keyboard("{Escape}");
+  expect(calendar).toHaveFocus();
+  await user.click(screen.getByRole("button", { name: "保存" }));
+  await screen.findByRole("alert");
+  expect(select).toBeDisabled();
+  expect(calendar).toBeDisabled();
+  expect(screen.getByLabelText("费用日期")).toBeDisabled();
+  await user.click(screen.getByRole("button", { name: "重试刷新" }));
+  expect(save).toHaveBeenCalledOnce();
 });

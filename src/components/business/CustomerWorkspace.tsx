@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { SelectField } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   CustomerForm,
@@ -23,7 +24,6 @@ import {
   SampleProgressForm,
   ShipmentForm,
   TaskForm,
-  fieldClass,
 } from "@/components/business/BusinessForms";
 import {
   filterInquiries,
@@ -213,60 +213,42 @@ export function CustomerWorkspace({
             </Button>
           </div>
           <div className="grid gap-3 md:grid-cols-4">
-            <select
+            <SelectField
               aria-label="按询盘来源筛选"
               value={filters.source}
-              onChange={(event) =>
-                setFilters({ ...filters, source: event.target.value })
-              }
-              className={fieldClass}
-            >
-              <option value="">全部来源</option>
-              {options.sources.map((value) => (
-                <option key={value}>{value}</option>
-              ))}
-            </select>
-            <select
+              onValueChange={(source) => setFilters({ ...filters, source })}
+              options={[
+                { value: "", label: "全部来源" },
+                ...options.sources.map((value) => ({ value, label: value })),
+              ]}
+            />
+            <SelectField
               aria-label="按国家或地区筛选"
               value={filters.country}
-              onChange={(event) =>
-                setFilters({ ...filters, country: event.target.value })
-              }
-              className={fieldClass}
-            >
-              <option value="">全部国家或地区</option>
-              {options.countries.map((value) => (
-                <option key={value}>{value}</option>
-              ))}
-            </select>
-            <select
+              onValueChange={(country) => setFilters({ ...filters, country })}
+              options={[
+                { value: "", label: "全部国家或地区" },
+                ...options.countries.map((value) => ({ value, label: value })),
+              ]}
+            />
+            <SelectField
               aria-label="按意向产品筛选"
               value={filters.product}
-              onChange={(event) =>
-                setFilters({ ...filters, product: event.target.value })
-              }
-              className={fieldClass}
-            >
-              <option value="">全部产品</option>
-              {options.products.map((value) => (
-                <option key={value}>{value}</option>
-              ))}
-            </select>
-            <select
+              onValueChange={(product) => setFilters({ ...filters, product })}
+              options={[
+                { value: "", label: "全部产品" },
+                ...options.products.map((value) => ({ value, label: value })),
+              ]}
+            />
+            <SelectField
               aria-label="按跟进阶段筛选"
               value={filters.stage}
-              onChange={(event) =>
-                setFilters({ ...filters, stage: event.target.value })
-              }
-              className={fieldClass}
-            >
-              <option value="">全部阶段</option>
-              {followUpStages.map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
+              onValueChange={(stage) => setFilters({ ...filters, stage })}
+              options={[
+                { value: "", label: "全部阶段" },
+                ...followUpStages.map(([value, label]) => ({ value, label })),
+              ]}
+            />
           </div>
         </CardContent>
       </Card>

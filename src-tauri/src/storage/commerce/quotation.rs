@@ -171,11 +171,7 @@ pub fn save_structured_quote(
     let mut below_moq = Vec::new();
     let mut subtotal: i128 = 0;
     for (index, line) in fields.lines.iter_mut().enumerate() {
-        let product: Record<Product> = record(
-            &transaction,
-            "SELECT data FROM products WHERE id=?1",
-            line.product_id,
-        )?;
+        let product = read_product(&transaction, line.product_id)?;
         if product.data.archived
             && !previous.as_ref().is_some_and(|quote| {
                 quote

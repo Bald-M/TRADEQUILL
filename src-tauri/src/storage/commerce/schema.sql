@@ -1,8 +1,6 @@
-CREATE TABLE products (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    code_key TEXT NOT NULL UNIQUE,
-    data TEXT NOT NULL
-);
+ALTER TABLE products ADD COLUMN lead_time_max_days INTEGER;
+ALTER TABLE products ADD COLUMN internal_notes TEXT NOT NULL DEFAULT '';
+UPDATE products SET lead_time_max_days=lead_time_days;
 CREATE TABLE suppliers (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name_key TEXT NOT NULL UNIQUE,
@@ -49,4 +47,4 @@ CREATE TABLE order_history (
     data TEXT NOT NULL
 );
 CREATE TABLE commerce_settings (key TEXT PRIMARY KEY NOT NULL, value TEXT NOT NULL);
-PRAGMA user_version = 3;
+PRAGMA user_version = 4;

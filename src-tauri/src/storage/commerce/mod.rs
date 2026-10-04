@@ -116,10 +116,10 @@ pub fn commerce_snapshot(data_dir: PathBuf) -> Result<CommerceSnapshot, String> 
         .transaction()
         .map_err(|error| error.to_string())?;
     let result = CommerceSnapshot {
-        products: records(
-            &transaction,
-            "SELECT id, data FROM products ORDER BY id DESC",
-        )?,
+        products: crate::catalog::read_products(&transaction)?
+            .into_iter()
+            .map(Into::into)
+            .collect(),
         suppliers: records(
             &transaction,
             "SELECT id, data FROM suppliers ORDER BY id DESC",

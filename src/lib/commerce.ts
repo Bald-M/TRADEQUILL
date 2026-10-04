@@ -12,6 +12,7 @@ export interface ProductFields {
   moq: string | null;
   leadDaysMin: number | null;
   leadDaysMax: number | null;
+  leadTimeNote?: string;
   notes: string;
   archived: boolean;
 }
@@ -220,7 +221,7 @@ export const orderStatuses = {
 export const getCommerceSnapshot = () =>
   invoke<CommerceSnapshot>("commerce_snapshot");
 export const saveProduct = (input: ProductFields & { id: number | null }) =>
-  invoke<number>("save_product", { input });
+  invoke<number>("save_commerce_product", { input });
 export const saveSupplier = (input: SupplierFields & { id: number | null }) =>
   invoke<number>("save_supplier", { input });
 export const saveOffer = (input: OfferFields & { id: number | null }) =>
@@ -266,11 +267,11 @@ export function productText(product: ProductFields): string {
   ].join("\n");
 }
 export function leadTime(
-  product: Pick<ProductFields, "leadDaysMin" | "leadDaysMax">,
+  product: Pick<ProductFields, "leadDaysMin" | "leadDaysMax" | "leadTimeNote">,
 ): string {
   return product.leadDaysMin === null
     ? "未知"
-    : `确认订单后 ${product.leadDaysMin}–${product.leadDaysMax} 天`;
+    : `${product.leadTimeNote || "确认订单后"} ${product.leadDaysMin}–${product.leadDaysMax} 天`;
 }
 
 export const exportQuotePdf = (quoteId: number) =>

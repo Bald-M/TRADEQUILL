@@ -1,3 +1,4 @@
+import { SelectInput } from "./Shared";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,14 +10,7 @@ import {
   type ReportFilter,
   type ReportTotals,
 } from "@/lib/commerce";
-import {
-  Empty,
-  ErrorMessage,
-  Field,
-  TextField,
-  fieldClass,
-  messageOf,
-} from "./Shared";
+import { Empty, ErrorMessage, Field, TextField, messageOf } from "./Shared";
 
 function Totals({
   title,
@@ -136,24 +130,23 @@ export function Reports({
           />
           <Field label="统计客户">
             {(id) => (
-              <select
+              <SelectInput
                 id={id}
-                className={fieldClass}
-                value={form.customerId ?? ""}
-                onChange={(e) =>
+                value={String(form.customerId ?? "")}
+                onValueChange={(value) =>
                   setForm({
                     ...form,
-                    customerId: e.target.value ? Number(e.target.value) : null,
+                    customerId: value ? Number(value) : null,
                   })
                 }
-              >
-                <option value="">全部客户</option>
-                {business.customers.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
+                options={[
+                  { value: String(""), label: String("全部客户") },
+                  ...business.customers.map((c) => ({
+                    value: String(c.id),
+                    label: String(c.name),
+                  })),
+                ]}
+              />
             )}
           </Field>
           <TextField

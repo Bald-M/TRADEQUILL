@@ -8,6 +8,9 @@ import {
 } from "react";
 import { LoaderCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { SelectField } from "@/components/ui/select";
+import { DateTimeField } from "@/components/ui/date-time-field";
+import { dateInputError } from "@/lib/date-input";
 import {
   appendSampleProgress,
   currencies,
@@ -52,7 +55,7 @@ function Field({
       </label>
       {children(id, errorId)}
       {error ? (
-        <p id={errorId} className="text-xs text-destructive">
+        <p id={errorId} className="text-sm text-destructive">
           {error}
         </p>
       ) : hint ? (
@@ -310,7 +313,8 @@ export function InquiryForm({
   async function submit(event: FormEvent) {
     event.preventDefault();
     const next: Record<string, string> = {};
-    if (!form.receivedOn) next.receivedOn = "请选择收到日期。";
+    if (dateInputError(form.receivedOn))
+      next.receivedOn = dateInputError(form.receivedOn);
     if (!form.source.trim()) next.source = "请输入询盘来源。";
     if (!form.country.trim()) next.country = "请输入国家或地区。";
     if (splitProducts(form.products).length === 0)
@@ -354,31 +358,29 @@ export function InquiryForm({
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="收到日期 *" error={errors.receivedOn}>
           {(id, errorId) => (
-            <input
+            <DateTimeField
               id={id}
-              type="date"
+              label="收到日期"
+              required
+              disabled={saving || committed}
               value={form.receivedOn}
-              onChange={(event) => set("receivedOn", event.target.value)}
+              onChange={(value) => set("receivedOn", value)}
               aria-invalid={Boolean(errors.receivedOn)}
               aria-describedby={errorId}
-              className={fieldClass}
             />
           )}
         </Field>
         <Field label="跟进阶段 *">
           {(id) => (
-            <select
+            <SelectField
               id={id}
               value={form.stage}
-              onChange={(event) => set("stage", event.target.value)}
-              className={fieldClass}
-            >
-              {followUpStages.map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
+              onValueChange={(value) => set("stage", value)}
+              options={followUpStages.map(([value, label]) => ({
+                value,
+                label,
+              }))}
+            />
           )}
         </Field>
         <Field label="询盘来源 *" error={errors.source}>
@@ -457,21 +459,18 @@ function InquirySelect({
   onChange: (value: number | null) => void;
 }) {
   return (
-    <select
+    <SelectField
       id={id}
-      value={value ?? ""}
-      onChange={(event) =>
-        onChange(event.target.value ? Number(event.target.value) : null)
-      }
-      className={fieldClass}
-    >
-      <option value="">不关联询盘</option>
-      {inquiries.map((inquiry) => (
-        <option key={inquiry.id} value={inquiry.id}>
-          {inquiry.receivedOn} · {inquiry.products.join("、")}
-        </option>
-      ))}
-    </select>
+      value={value === null ? "" : String(value)}
+      onValueChange={(value) => onChange(value ? Number(value) : null)}
+      options={[
+        { value: "", label: "不关联询盘" },
+        ...inquiries.map((inquiry) => ({
+          value: String(inquiry.id),
+          label: `${inquiry.receivedOn} · ${inquiry.products.join("、")}`,
+        })),
+      ]}
+    />
   );
 }
 
@@ -504,7 +503,8 @@ export function QuoteForm({
   async function submit(event: FormEvent) {
     event.preventDefault();
     const next: Record<string, string> = {};
-    if (!form.quotedOn) next.quotedOn = "请选择报价日期。";
+    if (dateInputError(form.quotedOn))
+      next.quotedOn = dateInputError(form.quotedOn);
     if (!form.content.trim()) next.content = "请输入产品或报价内容。";
     if (!/^\d+(\.\d{1,2})?$/.test(form.amount))
       next.amount = "请输入非负且最多两位小数的金额。";
@@ -544,14 +544,15 @@ export function QuoteForm({
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="报价日期 *" error={errors.quotedOn}>
           {(id, errorId) => (
-            <input
+            <DateTimeField
               id={id}
-              type="date"
+              label="报价日期"
+              required
+              disabled={saving || committed}
               value={form.quotedOn}
-              onChange={(event) => set("quotedOn", event.target.value)}
+              onChange={(value) => set("quotedOn", value)}
               aria-invalid={Boolean(errors.quotedOn)}
               aria-describedby={errorId}
-              className={fieldClass}
             />
           )}
         </Field>
@@ -580,16 +581,15 @@ export function QuoteForm({
         </Field>
         <Field label="币种 *">
           {(id) => (
-            <select
+            <SelectField
               id={id}
               value={form.currency}
-              onChange={(event) => set("currency", event.target.value)}
-              className={fieldClass}
-            >
-              {currencies.map((currency) => (
-                <option key={currency}>{currency}</option>
-              ))}
-            </select>
+              onValueChange={(value) => set("currency", value)}
+              options={currencies.map((currency) => ({
+                value: currency,
+                label: currency,
+              }))}
+            />
           )}
         </Field>
       </div>
@@ -659,7 +659,8 @@ export function SampleForm({
     if (!form.product.trim()) next.product = "请输入样品产品。";
     if (!Number.isInteger(quantity) || quantity <= 0)
       next.quantity = "请输入大于 0 的整数数量。";
-    if (!form.requestedOn) next.requestedOn = "请选择申请日期。";
+    if (dateInputError(form.requestedOn))
+      next.requestedOn = dateInputError(form.requestedOn);
     setErrors(next);
     if (Object.keys(next).length) {
       setServerError("请检查表单中标记的字段。已填写内容会保留。");
@@ -724,14 +725,15 @@ export function SampleForm({
         </Field>
         <Field label="申请日期 *" error={errors.requestedOn}>
           {(id, errorId) => (
-            <input
+            <DateTimeField
               id={id}
-              type="date"
+              label="申请日期"
+              required
+              disabled={saving || committed}
               value={form.requestedOn}
-              onChange={(event) => set("requestedOn", event.target.value)}
+              onChange={(value) => set("requestedOn", value)}
               aria-invalid={Boolean(errors.requestedOn)}
               aria-describedby={errorId}
-              className={fieldClass}
             />
           )}
         </Field>
@@ -794,7 +796,8 @@ export function TaskForm({
   async function submit(event: FormEvent) {
     event.preventDefault();
     const next: Record<string, string> = {};
-    if (!form.dueAt) next.dueAt = "请选择跟进日期和时间。";
+    if (dateInputError(form.dueAt, true))
+      next.dueAt = dateInputError(form.dueAt, true);
     if (!form.content.trim()) next.content = "请输入跟进内容。";
     setErrors(next);
     if (Object.keys(next).length) {
@@ -829,14 +832,16 @@ export function TaskForm({
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="跟进时间 *" error={errors.dueAt}>
           {(id, errorId) => (
-            <input
+            <DateTimeField
               id={id}
-              type="datetime-local"
+              label="跟进时间"
+              required
+              disabled={saving || committed}
+              withTime
               value={form.dueAt}
-              onChange={(event) => set("dueAt", event.target.value)}
+              onChange={(value) => set("dueAt", value)}
               aria-invalid={Boolean(errors.dueAt)}
               aria-describedby={errorId}
-              className={fieldClass}
             />
           )}
         </Field>
@@ -903,7 +908,8 @@ export function SampleProgressForm({
     event.preventDefault();
     const next: Record<string, string> = {};
     if (!stage) next.stage = "请选择下一阶段。";
-    if (!occurredOn) next.occurredOn = "请选择发生日期。";
+    if (dateInputError(occurredOn))
+      next.occurredOn = dateInputError(occurredOn);
     setErrors(next);
     if (Object.keys(next).length) {
       setServerError("请检查表单中标记的字段。已填写内容会保留。");
@@ -935,41 +941,38 @@ export function SampleProgressForm({
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label="下一阶段" error={errors.stage}>
           {(id, errorId) => (
-            <select
+            <SelectField
               id={id}
               value={stage}
-              onChange={(event) => {
-                setStage(event.target.value);
+              onValueChange={(value) => {
+                setStage(value);
                 setErrors((current) => ({ ...current, stage: "" }));
                 setServerError("");
               }}
               aria-invalid={Boolean(errors.stage)}
               aria-describedby={errorId}
-              className={fieldClass}
-            >
-              <option value="">请选择</option>
-              {nextStages.map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
+              options={[
+                { value: "", label: "请选择" },
+                ...nextStages.map(([value, label]) => ({ value, label })),
+              ]}
+            />
           )}
         </Field>
         <Field label="发生日期" error={errors.occurredOn}>
           {(id, errorId) => (
-            <input
+            <DateTimeField
               id={id}
-              type="date"
+              label="发生日期"
+              required
+              disabled={saving || committed}
               value={occurredOn}
-              onChange={(event) => {
-                setOccurredOn(event.target.value);
+              onChange={(value) => {
+                setOccurredOn(value);
                 setErrors((current) => ({ ...current, occurredOn: "" }));
                 setServerError("");
               }}
               aria-invalid={Boolean(errors.occurredOn)}
               aria-describedby={errorId}
-              className={fieldClass}
             />
           )}
         </Field>

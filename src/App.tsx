@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   ArrowRight,
+  BookOpen,
   BriefcaseBusiness,
   Check,
   ChevronRight,
@@ -28,6 +29,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { CustomerWorkspace } from "@/components/business/CustomerWorkspace";
 import { FollowUpWorkspace } from "@/components/business/FollowUpWorkspace";
+import { CatalogWorkspace } from "@/components/catalog/CatalogWorkspace";
 import { useTheme } from "@/hooks/use-theme";
 import { useDailyReminder } from "@/hooks/use-daily-reminder";
 import {
@@ -49,6 +51,7 @@ const pages = [
   { id: "overview", label: "工作台", icon: LayoutDashboard },
   { id: "customers", label: "客户管理", icon: Users },
   { id: "business", label: "业务管理", icon: BriefcaseBusiness },
+  { id: "catalog", label: "产品与知识库", icon: BookOpen },
   { id: "data", label: "数据管理", icon: FolderArchive },
   { id: "settings", label: "设置", icon: Settings2 },
 ] as const;
@@ -95,9 +98,11 @@ function App() {
     setPage("business");
   };
 
+  const [catalogEditing, setCatalogEditing] = useState(false);
   const { dark, toggleTheme } = useTheme();
   const activePage = pages.find((item) => item.id === page)!;
   const reminderMessage = useDailyReminder(storage.kind === "ready");
+  const catalogNavigationBlocked = page === "catalog" && catalogEditing;
 
   const refreshBusiness = useCallback(async () => {
     try {
@@ -150,7 +155,7 @@ function App() {
       return;
     }
     void refreshCommerce().catch(() => undefined);
-  }, [storage.kind, refreshCommerce]);
+  }, [storage.kind, refreshCommerce, page]);
 
   const refreshAll = async () => {
     await Promise.all([refreshBusiness(), refreshCommerce()]);
@@ -169,7 +174,7 @@ function App() {
       >
         跳到主要内容
       </a>
-      <aside className="sticky top-0 flex h-screen w-56 shrink-0 flex-col border-r bg-sidebar p-4">
+      <aside className="sticky top-0 flex h-screen w-56 shrink-0 flex-col overflow-y-auto border-r bg-sidebar p-4">
         <div className="flex items-center gap-3 px-2 py-5">
           <div className="flex size-10 items-center justify-center rounded-xl bg-primary text-primary-foreground">
             <Feather className="size-5" aria-hidden="true" />
@@ -189,6 +194,12 @@ function App() {
               variant={page === id ? "secondary" : "ghost"}
               className="h-11 w-full justify-start gap-3"
               aria-current={page === id ? "page" : undefined}
+              disabled={catalogNavigationBlocked && id !== "catalog"}
+              aria-describedby={
+                catalogNavigationBlocked && id !== "catalog"
+                  ? "catalog-editing-navigation-note"
+                  : undefined
+              }
               onClick={() => setPage(id)}
             >
               <Icon className="size-4" aria-hidden="true" />
@@ -196,6 +207,15 @@ function App() {
             </Button>
           ))}
         </nav>
+        {catalogNavigationBlocked && (
+          <p
+            id="catalog-editing-navigation-note"
+            role="status"
+            className="mt-3 px-3 text-xs leading-5 text-muted-foreground"
+          >
+            请先保存或取消当前产品/资料编辑，再切换页面。保存期间请等待完成。
+          </p>
+        )}
         <div className="mt-auto space-y-4 px-2">
           <div className="rounded-lg border bg-background p-3">
             <ShieldCheck
@@ -257,7 +277,9 @@ function App() {
                   ? "围绕客户卡片归档每一次业务往来。"
                   : page === "business"
                     ? "维护产品、供应商、报价、订单与经营测算，安排后续跟进。"
-                    : "一个专注、轻量的本地外贸工作空间。"}
+                    : page === "catalog"
+                      ? "维护产品档案、确认资料并在本机检索。无需联网或 AI 服务。"
+                      : "一个专注、轻量的本地外贸工作空间。"}
             </p>
           </div>
 
@@ -331,10 +353,10 @@ function App() {
                     target: "business" as Page,
                   },
                   {
-                    title: "本地资料",
-                    text: "为数据交换、文件整理和备份做好准备。",
-                    icon: FolderArchive,
-                    target: "data" as Page,
+                    title: "产品与知识库",
+                    text: "集中维护产品参数，整理资料与 FAQ 并在本机检索。",
+                    icon: BookOpen,
+                    target: "catalog" as Page,
                   },
                 ].map(({ title, text, icon: Icon, target }) => (
                   <Card key={target} className="shadow-none">
@@ -517,6 +539,10 @@ function App() {
                 </>
               )}
             </div>
+          )}
+
+          {page === "catalog" && storage.kind === "ready" && (
+            <CatalogWorkspace onEditing={setCatalogEditing} />
           )}
 
           {page === "data" && (

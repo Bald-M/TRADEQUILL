@@ -1,7 +1,24 @@
-import { useId, useRef, useState, type FormEvent, type ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useId,
+  useRef,
+  useState,
+  type ComponentProps,
+  type FormEvent,
+  type ReactNode,
+} from "react";
 import { Button } from "@/components/ui/button";
 import { fieldClass } from "@/components/business/BusinessForms";
 export { fieldClass };
+import { SelectField } from "@/components/ui/select";
+import { DateTimeField } from "@/components/ui/date-time-field";
+
+const FormDisabled = createContext(false);
+export function SelectInput(props: ComponentProps<typeof SelectField>) {
+  const formDisabled = useContext(FormDisabled);
+  return <SelectField {...props} disabled={formDisabled || props.disabled} />;
+}
 
 export function Field({
   label,
@@ -44,6 +61,23 @@ export function TextField({
   hint?: string;
   disabled?: boolean;
 }) {
+  const formDisabled = useContext(FormDisabled);
+  disabled ||= formDisabled;
+  if (type === "date")
+    return (
+      <Field label={label} hint={hint}>
+        {(id) => (
+          <DateTimeField
+            id={id}
+            label={label}
+            value={value}
+            onChange={onChange}
+            required={required}
+            disabled={disabled}
+          />
+        )}
+      </Field>
+    );
   return (
     <Field label={label} hint={hint}>
       {(id) =>
@@ -153,7 +187,9 @@ export function SaveForm({
         disabled={busy || committed}
         className="space-y-4 disabled:opacity-70"
       >
-        {children}
+        <FormDisabled.Provider value={busy || committed}>
+          {children}
+        </FormDisabled.Provider>
       </fieldset>
       <div className="flex flex-wrap justify-end gap-2">
         <Button
