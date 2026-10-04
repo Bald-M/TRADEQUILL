@@ -174,13 +174,13 @@ Windows 实际 WebView、安装包安装、签名和公证仍未执行；远端 
 独立标识 `com.tradequill.issue26.validation` 的验收库从 schema 2 正常启动至 schema 3，保留原有 1 位合成客户、45 条询盘、报价与样品。补充 45 个合成产品，未使用正式应用数据。
 
 - 知识资料新建时，Tab 到达关联产品，方向键、Home/End 和 Enter 可选通用资料或产品；Escape 关闭弹层并恢复触发器焦点。45 个产品可滚动，归档产品仍有说明，长中文及连续英文折行显示。
-- 在 900 × 600 浅/深主题下检查知识库和客户下拉。弹层随可用空间定位并在窗口内滚动；超高的客户产品选项可继续滚动至末尾。集成后的页面未见横向溢出，旧阶段记录中的横向滚动问题不再复现。页面滚动后仍能操作表单与保存按钮。
+- 在 1280 × 820 和 900 × 600 浅/深主题下检查知识库下拉，并在最小窗口复验客户下拉。弹层随可用空间定位并在窗口内滚动；超高的客户产品选项可继续滚动至末尾。集成后的页面未见横向溢出，旧阶段记录中的横向滚动问题不再复现。页面滚动后仍能操作表单与保存按钮。
 - 通过键盘设置 FAQ、已确认、对外可用，选择归档产品 SELECT-45。将独立验收库临时改为只读后，真实 IPC 保存显示 `attempt to write a readonly database`，四项选择和正文均保留；立即恢复原权限后重试成功。只读数据库核对 `product_id = 45` 且类型为 `integer`，`kind = faq`、`status = confirmed`、`visibility = public`。
 - 编辑已保存资料时，归档关联、FAQ、确认状态与使用范围准确回填，资料类型入口禁用。改选通用资料保存新版本后，数据库 `product_id` 为 `NULL`，其他选择保留。
 - 使用系统文件选择器导入合成 TXT，真实 Rust 提取并显示预览。显式确认后切换文本类型，再切回文件类型，旧预览和确认状态均清除、文件输入恢复为空；提交被“请选择文件并查看提取预览”拦截，不能复用旧预览。
 - 客户长产品筛选后仅显示对应询盘；清除后恢复 45 条，清除按钮禁用。浅/深主题下复验弹层及 Escape 焦点返回，原有客户与业务流程的阶段性桌面证据见前节。
 
-截图：[知识库浅色最小窗口](assets/validation/issue26/catalog-select-light-min.png)、[知识库深色最小窗口](assets/validation/issue26/catalog-select-dark-min.png)、[真实保存失败](assets/validation/issue26/catalog-select-save-failure.png)、[类型切换清理预览](assets/validation/issue26/catalog-select-preview-cleared.png)、[客户浅色最小窗口](assets/validation/issue26/customer-select-light-min.png)、[客户深色最小窗口](assets/validation/issue26/customer-select-dark-min.png)。全部仅含合成验收资料。
+截图：[知识库浅色标准窗口](assets/validation/issue26/catalog-select-light-1280.png)、[知识库深色标准窗口](assets/validation/issue26/catalog-select-dark-1280.png)、[知识库浅色最小窗口](assets/validation/issue26/catalog-select-light-min.png)、[知识库深色最小窗口](assets/validation/issue26/catalog-select-dark-min.png)、[真实保存失败](assets/validation/issue26/catalog-select-save-failure.png)、[类型切换清理预览](assets/validation/issue26/catalog-select-preview-cleared.png)、[客户浅色最小窗口](assets/validation/issue26/customer-select-light-min.png)、[客户深色最小窗口](assets/validation/issue26/customer-select-dark-min.png)。全部仅含合成验收资料。
 
 ### 平台限制
 
