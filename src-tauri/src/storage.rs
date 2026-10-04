@@ -3,7 +3,7 @@ use rusqlite::{params, Connection, OptionalExtension, Transaction, TransactionBe
 use serde::{Deserialize, Serialize};
 use std::{fs, path::PathBuf, time::Duration};
 
-const SCHEMA_VERSION: i64 = 2;
+const SCHEMA_VERSION: i64 = 3;
 const FOLLOW_UP_STAGES: [&str; 6] = ["new", "contacted", "quoted", "sampling", "won", "paused"];
 const SAMPLE_STAGES: [&str; 6] = [
     "requested",
@@ -314,6 +314,11 @@ pub fn initialize(data_dir: PathBuf) -> Result<WorkspaceStatus, String> {
                  CREATE INDEX tasks_due_idx ON follow_up_tasks(completed, due_at);
                  PRAGMA user_version = 2;",
             )?;
+            version = 2;
+        }
+        if version == 2 {
+            crate::catalog::migrate(&transaction)?;
+            transaction.pragma_update(None, "user_version", SCHEMA_VERSION)?;
         }
         transaction.commit()?;
         Ok(WorkspaceStatus {
@@ -332,7 +337,7 @@ fn configured_connection(path: &PathBuf) -> rusqlite::Result<Connection> {
     Ok(connection)
 }
 
-fn open(data_dir: PathBuf) -> Result<Connection, String> {
+pub(crate) fn open(data_dir: PathBuf) -> Result<Connection, String> {
     initialize(data_dir.clone())?;
     configured_connection(&data_dir.join("tradequill.sqlite3"))
         .map_err(|error| format!("无法连接本地数据库：{error}"))

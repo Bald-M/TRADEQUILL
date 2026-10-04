@@ -28,6 +28,8 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm format:check
       - run: pnpm build
+      - run: pnpm test
       - run: cargo fmt --manifest-path src-tauri/Cargo.toml --check
       - run: pnpm check:rust
+      - run: cargo test --manifest-path src-tauri/Cargo.toml --locked
       - run: pnpm tauri build --no-bundle
