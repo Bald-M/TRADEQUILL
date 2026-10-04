@@ -52,7 +52,7 @@
 - Windows 实机运行与安装包安装。
 - macOS 系统通知权限提示和通知投递未在人工验收中触发；提醒的到期判定、每日一次去重和 IPC 已由自动测试及本机构建覆盖。
 
-## 统一 Select 验收（Issue #26，客户与跟进部分）
+## 统一 Select 阶段验收（Issue #26，客户与跟进部分）
 
 环境：macOS Apple Silicon，2026-10-04；候选提交 `10a6580`。使用独立应用标识和数据库目录的调试 `.app`，只使用合成记录。产品知识库四个下拉等待 #11/#23 合入目标分支后继续迁移，本节不代表整个 #26 已完成。
 
@@ -156,3 +156,32 @@
 本次新增截图：[匹配片段浅色](assets/validation/issue17/snippet-light-min.png)、[匹配片段深色](assets/validation/issue17/snippet-dark-min.png)、[日历集成](assets/validation/issue17/date-integration-min.png)。截图仅含隔离验收库中的合成资料。
 
 Windows 实际 WebView、安装包安装、签名和公证仍未执行；远端 CI 以最终 PR head 为准。此 PR 仅交付 #11/#23，#17 的在线 AI 需求保持未完成。
+
+## 统一 Select 完整验收（Issue #26）
+
+2026-10-04，macOS Apple Silicon；受测代码 `05fb8e1`，已集成 PR #41 的合并提交 `525e502`。本节补齐此前阶段验收中等待依赖的知识库四个下拉，并记录最终集成后的复核。全部 12 处定义（14 处使用）已迁移，原有日期组件、业务 IPC 与 schema 保持不变。
+
+### 自动验证与审查
+
+- `pnpm test`：14 个文件、78 项通过。新增知识库真实 Radix 交互覆盖通用资料/数字 ID、归档回填、四项选择失败保留、保存期间及已提交状态禁用、编辑时类型锁定、切换类型清理已确认预览，以及迟到提取响应隔离。合入的日期表单测试通过真实 Select 操作选择下一阶段。
+- `pnpm format:check`、`pnpm build`（含 TypeScript 检查）、`git diff --check`：通过。
+- `cargo fmt --manifest-path src-tauri/Cargo.toml --check`、`cargo test --manifest-path src-tauri/Cargo.toml --locked`、`cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --locked -- -D warnings`：通过，21 项 Rust 测试。使用独立构建目录，未修改 Rust 代码。
+- `pnpm tauri build --debug --bundles app --config <独立验收配置>`：macOS Apple Silicon 调试 `.app` 构建并实际启动。正式配置 `pnpm tauri build --no-bundle` release 原生编译通过。
+- 以 `525e502...05fb8e1` 的完整任务差异进行 Standards 与 Spec 两项独立审查，均 PASS，无未解决的有效发现。
+
+### 最终 macOS WebView 验收
+
+独立标识 `com.tradequill.issue26.validation` 的验收库从 schema 2 正常启动至 schema 3，保留原有 1 位合成客户、45 条询盘、报价与样品。补充 45 个合成产品，未使用正式应用数据。
+
+- 知识资料新建时，Tab 到达关联产品，方向键、Home/End 和 Enter 可选通用资料或产品；Escape 关闭弹层并恢复触发器焦点。45 个产品可滚动，归档产品仍有说明，长中文及连续英文折行显示。
+- 在 900 × 600 浅/深主题下检查知识库和客户下拉。弹层随可用空间定位并在窗口内滚动；超高的客户产品选项可继续滚动至末尾。集成后的页面未见横向溢出，旧阶段记录中的横向滚动问题不再复现。页面滚动后仍能操作表单与保存按钮。
+- 通过键盘设置 FAQ、已确认、对外可用，选择归档产品 SELECT-45。将独立验收库临时改为只读后，真实 IPC 保存显示 `attempt to write a readonly database`，四项选择和正文均保留；立即恢复原权限后重试成功。只读数据库核对 `product_id = 45` 且类型为 `integer`，`kind = faq`、`status = confirmed`、`visibility = public`。
+- 编辑已保存资料时，归档关联、FAQ、确认状态与使用范围准确回填，资料类型入口禁用。改选通用资料保存新版本后，数据库 `product_id` 为 `NULL`，其他选择保留。
+- 使用系统文件选择器导入合成 TXT，真实 Rust 提取并显示预览。显式确认后切换文本类型，再切回文件类型，旧预览和确认状态均清除、文件输入恢复为空；提交被“请选择文件并查看提取预览”拦截，不能复用旧预览。
+- 客户长产品筛选后仅显示对应询盘；清除后恢复 45 条，清除按钮禁用。浅/深主题下复验弹层及 Escape 焦点返回，原有客户与业务流程的阶段性桌面证据见前节。
+
+截图：[知识库浅色最小窗口](assets/validation/issue26/catalog-select-light-min.png)、[知识库深色最小窗口](assets/validation/issue26/catalog-select-dark-min.png)、[真实保存失败](assets/validation/issue26/catalog-select-save-failure.png)、[类型切换清理预览](assets/validation/issue26/catalog-select-preview-cleared.png)、[客户浅色最小窗口](assets/validation/issue26/customer-select-light-min.png)、[客户深色最小窗口](assets/validation/issue26/customer-select-dark-min.png)。全部仅含合成验收资料。
+
+### 平台限制
+
+Windows 实际 WebView 交互、字体、安装及系统窗口行为仍未执行；双平台远端 CI 以最终 PR head 检查为准，不能替代 Windows 人工验收。未生成或安装正式分发包，未执行签名、公证或额外部署。
