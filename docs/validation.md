@@ -60,7 +60,7 @@
 
 - `pnpm install --frozen-lockfile`、`pnpm typecheck`、`pnpm build`、`pnpm format:check` 通过。
 - `pnpm test`：9 个文件、35 项测试通过。覆盖五个表单的回填、清空必填、非法日期拦截、失败保留与重试；日历精确筛选、原有跨日分组；日期键盘编辑、跨年选取、立即 Enter 焦点回归、Escape/取消/遮罩、小时分钟、禁用和外部值更新。
-- 以 `TZ=America/Los_Angeles`、`TZ=Pacific/Kiritimati` 分别执行 `pnpm exec vitest run src/lib/date-input.test.ts src/components/ui/date-time-field.test.tsx src/components/business/BusinessDates.test.tsx`：各 15 项通过。覆盖午夜、UTC 两侧日期和夏令时缺失/重复墙上时间，不作 UTC 转换。这是自动行为测试，不是两个地区的实机验收。
+- 以 `TZ=America/Los_Angeles`、`TZ=Pacific/Kiritimati`、`TZ=Pacific/Apia` 分别执行 `pnpm exec vitest run src/lib/date-input.test.ts src/components/ui/date-time-field.test.tsx src/components/business/BusinessDates.test.tsx`：各 15 项通过。覆盖午夜、UTC 两侧日期和夏令时缺失/重复墙上时间，不作 UTC 转换。星期计算采用纯 Gregorian 日历天数，另覆盖 Apia 曾跳过的 `2011-12-30`。这是自动行为测试，不是这些地区的实机验收。
 - `cargo fmt --manifest-path src-tauri/Cargo.toml --check`、`pnpm check:rust`、`cargo test --manifest-path src-tauri/Cargo.toml --locked` 通过（6 个存储测试）。Rust 源码、IPC 和 SQLite schema 未修改。
 - `pnpm tauri build --debug --bundles app --config <临时验收配置>` 通过，使用独立构建目录。配置仅覆盖产品名、应用标识与窗口初始尺寸，生成 macOS Apple Silicon 调试 `.app`；不代表签名、公证或安装包分发验收。
 

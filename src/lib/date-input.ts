@@ -74,8 +74,16 @@ export function shiftCalendarDay(value: string, amount: number): string {
 
 export function calendarWeekday(value: string): number {
   const [year, month, day] = value.split("-").map(Number);
-  // Use noon and setFullYear to avoid JS's special handling of years 1–99.
-  const date = new Date(2000, 0, 1, 12);
-  date.setFullYear(year, month - 1, day);
-  return date.getDay();
+  const priorYear = year - 1;
+  const daysBeforeYear =
+    365 * priorYear +
+    Math.floor(priorYear / 4) -
+    Math.floor(priorYear / 100) +
+    Math.floor(priorYear / 400);
+  const daysBeforeMonth = [
+    0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334,
+  ][month - 1];
+  const leapDay = month > 2 && daysInMonth(year, 2) === 29 ? 1 : 0;
+  // 0001-01-01 is Monday. Count civil days so historical timezone date skips cannot shift weekdays.
+  return (daysBeforeYear + daysBeforeMonth + leapDay + day) % 7;
 }

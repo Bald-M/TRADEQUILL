@@ -65,5 +65,6 @@ describe("civil date input", () => {
     expect(shiftCalendarDay("9999-12-31", 7)).toBe("9999-12-31");
     expect(calendarWeekday("0001-01-01")).toBe(1);
     expect(calendarWeekday("2026-12-31")).toBe(4);
+    expect(calendarWeekday("2011-12-30")).toBe(5);
   });
 });
