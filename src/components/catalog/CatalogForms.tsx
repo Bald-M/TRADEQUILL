@@ -7,6 +7,7 @@ import {
   type ReactNode,
 } from "react";
 import { Button } from "@/components/ui/button";
+import { SelectField } from "@/components/ui/select";
 import { fieldClass } from "@/components/business/BusinessForms";
 import {
   catalogError,
@@ -539,25 +540,21 @@ export function KnowledgeForm({
         <div className="grid gap-4 sm:grid-cols-2">
           {plainInput("title", "资料标题 *")}
           <Field id={`${prefix}-productId`} label="关联产品">
-            <select
+            <SelectField
               id={`${prefix}-productId`}
-              value={form.productId ?? ""}
-              onChange={(event) =>
-                set(
-                  "productId",
-                  event.target.value ? Number(event.target.value) : null,
-                )
+              value={String(form.productId ?? "")}
+              onValueChange={(value) =>
+                set("productId", value ? Number(value) : null)
               }
-              className={fieldClass}
-            >
-              <option value="">通用资料</option>
-              {products.map((product) => (
-                <option key={product.id} value={product.id}>
-                  {product.sku} · {product.name}
-                  {product.archived ? "（已归档）" : ""}
-                </option>
-              ))}
-            </select>
+              disabled={saving || committed}
+              options={[
+                { value: "", label: "通用资料" },
+                ...products.map((product) => ({
+                  value: String(product.id),
+                  label: `${product.sku} · ${product.name}${product.archived ? "（已归档）" : ""}`,
+                })),
+              ]}
+            />
           </Field>
           {plainInput(
             "source",
@@ -566,60 +563,59 @@ export function KnowledgeForm({
           )}
           {plainInput("tags", "标签", "用逗号或顿号分隔，例如材质、保养。")}
           <Field id={`${prefix}-kind`} label="资料类型">
-            <select
+            <SelectField
               id={`${prefix}-kind`}
               value={form.kind}
-              disabled={Boolean(document)}
-              onChange={(event) => {
-                set("kind", event.target.value as KnowledgeKind);
+              disabled={saving || committed || Boolean(document)}
+              onValueChange={(value) => {
+                set("kind", value as KnowledgeKind);
                 parsingGeneration.current += 1;
                 setParsing(false);
                 setPreview(null);
                 setPreviewConfirmed(false);
               }}
-              className={fieldClass}
-            >
-              <option value="text">文本条目</option>
-              <option value="faq">FAQ（问答）</option>
-              <option value="file">文件导入</option>
-            </select>
+              options={[
+                { value: "text", label: "文本条目" },
+                { value: "faq", label: "FAQ（问答）" },
+                { value: "file", label: "文件导入" },
+              ]}
+            />
           </Field>
           <Field
             id={`${prefix}-status`}
             label="确认状态"
             hint="确认表示你已核对资料；草稿不会作为默认 AI 依据。"
           >
-            <select
+            <SelectField
               id={`${prefix}-status`}
               value={form.status}
-              onChange={(event) =>
-                set("status", event.target.value as KnowledgeInput["status"])
+              onValueChange={(value) =>
+                set("status", value as KnowledgeInput["status"])
               }
-              className={fieldClass}
-            >
-              <option value="draft">草稿</option>
-              <option value="confirmed">已确认</option>
-            </select>
+              disabled={saving || committed}
+              options={[
+                { value: "draft", label: "草稿" },
+                { value: "confirmed", label: "已确认" },
+              ]}
+            />
           </Field>
           <Field
             id={`${prefix}-visibility`}
             label="使用范围"
             hint="仅内部资料不能作为默认对外回答依据。"
           >
-            <select
+            <SelectField
               id={`${prefix}-visibility`}
               value={form.visibility}
-              onChange={(event) =>
-                set(
-                  "visibility",
-                  event.target.value as KnowledgeInput["visibility"],
-                )
+              onValueChange={(value) =>
+                set("visibility", value as KnowledgeInput["visibility"])
               }
-              className={fieldClass}
-            >
-              <option value="internal">仅内部</option>
-              <option value="public">对外可用</option>
-            </select>
+              disabled={saving || committed}
+              options={[
+                { value: "internal", label: "仅内部" },
+                { value: "public", label: "对外可用" },
+              ]}
+            />
           </Field>
           {plainInput(
             "conflictNote",

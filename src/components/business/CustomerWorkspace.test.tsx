@@ -15,6 +15,7 @@ import {
   type InquiryRecord,
 } from "@/lib/business";
 import { CustomerWorkspace } from "./CustomerWorkspace";
+import { chooseSelectOption } from "@/test/select";
 
 vi.mock("@/lib/business", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/business")>();
@@ -83,15 +84,44 @@ const snapshot: BusinessSnapshot = {
 };
 
 describe("CustomerWorkspace", () => {
-  it("applies inquiry filters to both the customer list and detail history", () => {
+  it("applies inquiry filters to both the customer list and detail history", async () => {
     render(<CustomerWorkspace snapshot={snapshot} refresh={vi.fn()} />);
 
-    fireEvent.change(screen.getByLabelText("按跟进阶段筛选"), {
-      target: { value: "quoted" },
-    });
+    await chooseSelectOption("按跟进阶段筛选", "已报价");
 
     expect(screen.getByText("Quoted inquiry")).toBeInTheDocument();
     expect(screen.queryByText("New inquiry")).not.toBeInTheDocument();
+  });
+
+  it("combines all four filters and restores empty values when cleared", async () => {
+    render(<CustomerWorkspace snapshot={snapshot} refresh={vi.fn()} />);
+
+    await chooseSelectOption("按询盘来源筛选", "网站");
+    await chooseSelectOption("按国家或地区筛选", "法国");
+    await chooseSelectOption("按意向产品筛选", "Widget B");
+    await chooseSelectOption("按跟进阶段筛选", "已报价");
+    expect(screen.getByText("Quoted inquiry")).toBeInTheDocument();
+    expect(screen.queryByText("New inquiry")).not.toBeInTheDocument();
+
+    await chooseSelectOption("按意向产品筛选", "Widget A");
+    expect(screen.getByText("没有符合组合筛选的客户。")).toBeInTheDocument();
+    expect(screen.queryByText("Quoted inquiry")).not.toBeInTheDocument();
+    fireEvent.click(screen.getAllByRole("button", { name: "清除筛选" })[0]);
+
+    expect(
+      screen.getByRole("combobox", { name: "按询盘来源筛选" }),
+    ).toHaveTextContent("全部来源");
+    expect(
+      screen.getByRole("combobox", { name: "按国家或地区筛选" }),
+    ).toHaveTextContent("全部国家或地区");
+    expect(
+      screen.getByRole("combobox", { name: "按意向产品筛选" }),
+    ).toHaveTextContent("全部产品");
+    expect(
+      screen.getByRole("combobox", { name: "按跟进阶段筛选" }),
+    ).toHaveTextContent("全部阶段");
+    expect(screen.getByText("New inquiry")).toBeInTheDocument();
+    expect(screen.getByText("Quoted inquiry")).toBeInTheDocument();
   });
 
   it("remounts the editor when switching between records", () => {
@@ -137,9 +167,7 @@ describe("CustomerWorkspace", () => {
     );
     expect(screen.getByLabelText("询盘内容 *")).toHaveValue("New inquiry");
 
-    fireEvent.change(screen.getByLabelText("按跟进阶段筛选"), {
-      target: { value: "sampling" },
-    });
+    await chooseSelectOption("按跟进阶段筛选", "样品中");
 
     await waitFor(() =>
       expect(screen.queryByLabelText("询盘内容 *")).not.toBeInTheDocument(),
@@ -156,9 +184,7 @@ describe("CustomerWorkspace", () => {
     );
     expect(screen.getByLabelText("询盘内容 *")).toHaveValue("New inquiry");
 
-    fireEvent.change(screen.getByLabelText("按跟进阶段筛选"), {
-      target: { value: "quoted" },
-    });
+    await chooseSelectOption("按跟进阶段筛选", "已报价");
 
     expect(screen.getByLabelText("询盘内容 *")).toHaveValue("New inquiry");
     fireEvent.click(screen.getByRole("button", { name: "保存询盘" }));

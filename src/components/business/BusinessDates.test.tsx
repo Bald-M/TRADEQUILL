@@ -3,6 +3,7 @@ import "@testing-library/jest-dom/vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { chooseSelectOption } from "@/test/select";
 import {
   appendSampleProgress,
   saveFollowUpTask,
@@ -141,10 +142,7 @@ describe("business date contracts", () => {
       render(element);
       const input = screen.getByRole("textbox", { name: label });
       if (initial) expect(input).toHaveValue(initial);
-      else
-        fireEvent.change(screen.getByLabelText("下一阶段"), {
-          target: { value: "preparing" },
-        });
+      else await chooseSelectOption("下一阶段", "准备中");
       await user.click(screen.getByRole("button", { name: `清空${label}` }));
       await user.click(screen.getByRole("button", { name: button }));
       expect(save).not.toHaveBeenCalled();
