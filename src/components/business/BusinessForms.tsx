@@ -54,7 +54,7 @@ function Field({
       </label>
       {children(id, errorId)}
       {error ? (
-        <p id={errorId} className="text-xs text-destructive">
+        <p id={errorId} className="text-sm text-destructive">
           {error}
         </p>
       ) : hint ? (
