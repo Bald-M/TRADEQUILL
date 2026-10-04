@@ -286,7 +286,7 @@ export function ProductWorkspace({
                     <dd>
                       {product.leadTimeDays === null
                         ? "未知"
-                        : `${product.leadTimeDays} 天`}
+                        : `${product.leadTimeDays}–${product.leadTimeMaxDays ?? product.leadTimeDays} 天`}
                     </dd>
                   </div>
                   <div className="grid grid-cols-[minmax(80px,1fr)_2fr] gap-3">

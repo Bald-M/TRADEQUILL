@@ -34,6 +34,7 @@ pub struct ProductInput {
     pub parameters: Vec<ProductParameter>,
     pub moq: Option<String>,
     pub lead_time_days: Option<i64>,
+    pub lead_time_max_days: Option<i64>,
     pub lead_time_note: String,
 }
 
@@ -47,10 +48,12 @@ pub struct ProductRecord {
     pub parameters: Vec<ProductParameter>,
     pub moq: Option<String>,
     pub lead_time_days: Option<i64>,
+    pub lead_time_max_days: Option<i64>,
     pub lead_time_note: String,
     pub archived: bool,
     pub created_at: String,
     pub updated_at: String,
+    pub internal_notes: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -284,7 +287,7 @@ fn ensure_managed_capacity(connection: &Connection, max_bytes: i64) -> Result<()
     Ok(())
 }
 
-fn positive_decimal(value: Option<String>) -> Result<Option<String>, String> {
+pub(crate) fn positive_decimal(value: Option<String>) -> Result<Option<String>, String> {
     let Some(value) = value.filter(|s| !s.trim().is_empty()) else {
         return Ok(None);
     };
@@ -311,18 +314,27 @@ fn positive_decimal(value: Option<String>) -> Result<Option<String>, String> {
     }))
 }
 
-pub fn save_product(data_dir: PathBuf, mut input: ProductInput) -> Result<ProductRecord, String> {
+pub fn save_product(data_dir: PathBuf, input: ProductInput) -> Result<ProductRecord, String> {
+    let mut connection = open_catalog(data_dir)?;
+    let transaction = connection
+        .transaction_with_behavior(TransactionBehavior::Immediate)
+        .map_err(db_error)?;
+    let record = save_product_in_transaction(&transaction, input)?;
+    transaction.commit().map_err(db_error)?;
+    Ok(record)
+}
+
+pub(crate) fn save_product_in_transaction(
+    transaction: &Transaction<'_>,
+    mut input: ProductInput,
+) -> Result<ProductRecord, String> {
     input.sku = clean(input.sku, "产品编号", 80, true)?;
     input.name = clean(input.name, "产品名称", 200, true)?;
-    input.unit = clean(input.unit, "计量单位", 30, true)?;
+    input.unit = clean(input.unit, "计量单位", 40, true)?;
     input.lead_time_note = clean(input.lead_time_note, "交期说明", 500, false)?;
     input.moq = positive_decimal(input.moq)?;
-    if input
-        .lead_time_days
-        .is_some_and(|n| !(1..=3650).contains(&n))
-    {
-        return Err("交期必须为 1–3650 个日历日，未知请留空。".into());
-    }
+    input.lead_time_max_days = input.lead_time_max_days.or(input.lead_time_days);
+    crate::storage::commerce::lead_days(input.lead_time_days, input.lead_time_max_days)?;
     if input.lead_time_days.is_some() && input.lead_time_note.is_empty() {
         return Err("填写交期时请说明起算条件，例如确认订单后。".into());
     }
@@ -339,10 +351,6 @@ pub fn save_product(data_dir: PathBuf, mut input: ProductInput) -> Result<Produc
         }
         names.push(key);
     }
-    let mut connection = open_catalog(data_dir)?;
-    let transaction = connection
-        .transaction_with_behavior(TransactionBehavior::Immediate)
-        .map_err(db_error)?;
     let duplicate: bool = transaction
         .query_row(
             "SELECT EXISTS(SELECT 1 FROM products WHERE sku=?1 COLLATE NOCASE AND id!=?2)",
@@ -358,7 +366,7 @@ pub fn save_product(data_dir: PathBuf, mut input: ProductInput) -> Result<Produc
         let changed = transaction
             .execute(
                 "UPDATE products SET sku=?1,name=?2,unit=?3,parameters_json=?4,moq=?5,
-                lead_time_days=?6,lead_time_note=?7,
+                lead_time_days=?6,lead_time_note=?7,lead_time_max_days=?9,
                 updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?8",
                 params![
                     input.sku,
@@ -368,7 +376,8 @@ pub fn save_product(data_dir: PathBuf, mut input: ProductInput) -> Result<Produc
                     input.moq,
                     input.lead_time_days,
                     input.lead_time_note,
-                    id
+                    id,
+                    input.lead_time_max_days
                 ],
             )
             .map_err(db_error)?;
@@ -378,16 +387,14 @@ pub fn save_product(data_dir: PathBuf, mut input: ProductInput) -> Result<Produc
         id
     } else {
         transaction.execute(
-            "INSERT INTO products(sku,name,unit,parameters_json,moq,lead_time_days,lead_time_note)
-                VALUES(?1,?2,?3,?4,?5,?6,?7)",
+            "INSERT INTO products(sku,name,unit,parameters_json,moq,lead_time_days,lead_time_note,lead_time_max_days)
+                VALUES(?1,?2,?3,?4,?5,?6,?7,?8)",
             params![input.sku,input.name,input.unit,parameters,input.moq,
-                input.lead_time_days,input.lead_time_note],
+                input.lead_time_days,input.lead_time_note,input.lead_time_max_days],
         ).map_err(db_error)?;
         transaction.last_insert_rowid()
     };
-    let record = read_product(&transaction, id)?;
-    transaction.commit().map_err(db_error)?;
-    Ok(record)
+    read_product(transaction, id)
 }
 
 fn product_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<ProductRecord> {
@@ -407,14 +414,16 @@ fn product_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<ProductRecord> {
         archived: row.get(8)?,
         created_at: row.get(9)?,
         updated_at: row.get(10)?,
+        lead_time_max_days: row.get(11)?,
+        internal_notes: row.get(12)?,
     })
 }
 
-fn read_product(connection: &Connection, id: i64) -> Result<ProductRecord, String> {
+pub(crate) fn read_product(connection: &Connection, id: i64) -> Result<ProductRecord, String> {
     connection
         .query_row(
             "SELECT id,sku,name,unit,parameters_json,moq,lead_time_days,
-        lead_time_note,archived,created_at,updated_at FROM products WHERE id=?1",
+        lead_time_note,archived,created_at,updated_at,lead_time_max_days,internal_notes FROM products WHERE id=?1",
             [id],
             product_row,
         )
@@ -441,23 +450,28 @@ pub fn set_product_archived(
 
 pub fn list_catalog(data_dir: PathBuf) -> Result<CatalogSnapshot, String> {
     let connection = open_catalog(data_dir)?;
-    let mut products = connection
-        .prepare(
-            "SELECT id,sku,name,unit,parameters_json,moq,
-        lead_time_days,lead_time_note,archived,created_at,updated_at FROM products
-        ORDER BY archived,name,id",
-        )
-        .map_err(db_error)?;
-    let products = products
-        .query_map([], product_row)
-        .map_err(db_error)?
-        .collect::<rusqlite::Result<Vec<_>>>()
-        .map_err(db_error)?;
+    let products = read_products(&connection)?;
     let documents = read_summaries(&connection, false)?;
     Ok(CatalogSnapshot {
         products,
         documents,
     })
+}
+
+pub(crate) fn read_products(connection: &Connection) -> Result<Vec<ProductRecord>, String> {
+    let mut products = connection
+        .prepare(
+            "SELECT id,sku,name,unit,parameters_json,moq,
+        lead_time_days,lead_time_note,archived,created_at,updated_at,lead_time_max_days,internal_notes FROM products
+        ORDER BY archived,name,id",
+        )
+        .map_err(db_error)?;
+    let result = products
+        .query_map([], product_row)
+        .map_err(db_error)?
+        .collect::<rusqlite::Result<Vec<_>>>()
+        .map_err(db_error);
+    result
 }
 
 fn summary_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<KnowledgeSummary> {

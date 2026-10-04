@@ -6,7 +6,7 @@
 
 先阅读 [README](README.md)（[English](README.en.md)）了解运行方式与当前范围；界面修改遵循 [设计规范](DESIGN.md)，使用 Agent 开发时遵循 [AGENTS.md](AGENTS.md)。
 
-TradeQuill 当前提供本地客户/询盘、报价/样品/跟进主线，以及产品档案和轻量知识库。业务表格导入导出和完整备份仍在规划中。较大的业务功能或架构调整，请先与维护者明确场景、范围和验收条件，再开始实现；第一版维持单机、无在线 AI、无云同步和无遥测的边界。
+TradeQuill 当前提供本地客户/询盘、报价/样品/跟进主线，以及共享产品档案、轻量知识库、供应商、报价单、订单与成本利润。业务表格导入导出和完整备份仍在规划中。较大的业务功能或架构调整，请先与维护者明确场景、范围和验收条件，再开始实现；第一版维持单机、无在线 AI、无云同步和无遥测的边界。
 
 项目托管于 [Bald-M/TRADEQUILL](https://github.com/Bald-M/TRADEQUILL)。开始前先搜索已有 Issue 和 PR，避免重复工作；不要向参考项目提交 TradeQuill 的问题或改动。
 
@@ -39,6 +39,7 @@ pnpm desktop:dev
 
 ```sh
 pnpm format:check
+pnpm test
 pnpm build
 pnpm test
 cargo fmt --manifest-path src-tauri/Cargo.toml --check

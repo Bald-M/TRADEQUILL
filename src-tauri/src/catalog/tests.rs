@@ -38,6 +38,7 @@ fn product(sku: &str) -> ProductInput {
         }],
         moq: Some("0010.500".into()),
         lead_time_days: Some(14),
+        lead_time_max_days: Some(14),
         lead_time_note: "after order confirmation".into(),
     }
 }
@@ -109,6 +110,7 @@ fn products_preserve_authority_and_validate_decimal_units_and_archive() {
     let mut unknown = product("SKU-B");
     unknown.moq = None;
     unknown.lead_time_days = None;
+    unknown.lead_time_max_days = None;
     unknown.lead_time_note.clear();
     let unknown = save_product(root.0.clone(), unknown).unwrap();
     assert_eq!(unknown.moq, None);

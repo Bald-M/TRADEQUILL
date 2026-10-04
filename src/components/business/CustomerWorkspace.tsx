@@ -35,6 +35,12 @@ import {
   type InquiryFilters,
 } from "@/lib/business";
 
+import {
+  orderStatuses,
+  type CommerceSnapshot,
+  type CommerceRoute,
+} from "@/lib/commerce";
+
 type Section = "inquiries" | "quotes" | "samples" | "tasks";
 type Editor = { kind: "customer" | Section; id?: number } | null;
 
@@ -62,7 +68,11 @@ function Empty({ children }: { children: string }) {
 export function CustomerWorkspace({
   snapshot,
   refresh,
+  commerce,
+  openCommerce,
 }: {
+  commerce?: CommerceSnapshot;
+  openCommerce?: (route: CommerceRoute) => void;
   snapshot: BusinessSnapshot;
   refresh: () => Promise<void>;
 }) {
@@ -385,6 +395,68 @@ export function CustomerWorkspace({
                 </CardContent>
               </Card>
 
+              {openCommerce && (
+                <Card className="shadow-none">
+                  <CardContent className="space-y-3 pt-4">
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        variant="outline"
+                        onClick={() =>
+                          openCommerce({
+                            kind: "quotes",
+                            customerId: customer.id,
+                            newQuote: true,
+                          })
+                        }
+                      >
+                        为此客户选品报价
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() =>
+                          openCommerce({
+                            kind: "quotes",
+                            customerId: customer.id,
+                          })
+                        }
+                      >
+                        查看报价版本
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() =>
+                          openCommerce({
+                            kind: "orders",
+                            customerId: customer.id,
+                          })
+                        }
+                      >
+                        查看客户订单
+                      </Button>
+                    </div>
+                    {commerce?.orders
+                      .filter((order) => order.quote.customerId === customer.id)
+                      .map((order) => (
+                        <Button
+                          key={order.id}
+                          variant="ghost"
+                          className="h-auto w-full justify-start py-2 text-left whitespace-normal"
+                          onClick={() =>
+                            openCommerce({
+                              kind: "orders",
+                              id: order.id,
+                              customerId: customer.id,
+                            })
+                          }
+                        >
+                          {order.number} · {orderStatuses[order.status]} ·{" "}
+                          {order.quote.currency} {order.quote.total}
+                        </Button>
+                      ))}
+                  </CardContent>
+                </Card>
+              )}
+
               <div
                 role="tablist"
                 aria-label="客户卡片内容"
@@ -572,10 +644,21 @@ export function CustomerWorkspace({
                             <Button
                               variant="ghost"
                               size="sm"
-                              aria-label={`编辑 ${quote.quotedOn} 报价`}
-                              onClick={() =>
-                                setEditor({ kind: "quotes", id: quote.id })
-                              }
+                              aria-label={`${commerce?.quotes.some((item) => item.quoteId === quote.id) ? "查看版本" : "编辑"} ${quote.quotedOn} 报价`}
+                              onClick={() => {
+                                if (
+                                  commerce?.quotes.some(
+                                    (item) => item.quoteId === quote.id,
+                                  ) &&
+                                  openCommerce
+                                )
+                                  openCommerce({
+                                    kind: "quotes",
+                                    id: quote.id,
+                                  });
+                                else
+                                  setEditor({ kind: "quotes", id: quote.id });
+                              }}
                             >
                               <Pencil aria-hidden="true" />
                             </Button>

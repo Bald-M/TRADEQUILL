@@ -549,3 +549,41 @@ describe("KnowledgeForm", () => {
     expect(knowledgeSave).not.toHaveBeenCalled();
   });
 });
+
+it("preserves a shared product lead-time range and meaning while editing from the knowledge catalog", async () => {
+  const user = userEvent.setup();
+  const product: ProductRecord = {
+    id: 42,
+    sku: "MAIN-SKU",
+    name: "Shared",
+    unit: "pcs",
+    parameters: [],
+    moq: "10.5",
+    leadTimeDays: 14,
+    leadTimeMaxDays: 21,
+    leadTimeNote: "收到订金后",
+    archived: false,
+    createdAt: "",
+    updatedAt: "",
+  };
+  productSave.mockResolvedValue(undefined);
+  render(
+    <ProductForm
+      product={product}
+      onSaved={vi.fn().mockResolvedValue(undefined)}
+      onCancel={vi.fn()}
+    />,
+  );
+  expect(screen.getByLabelText("最长交期（天）")).toHaveValue("21");
+  await user.click(screen.getByRole("button", { name: "保存产品" }));
+  await waitFor(() =>
+    expect(productSave).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 42,
+        leadTimeDays: 14,
+        leadTimeMaxDays: 21,
+        leadTimeNote: "收到订金后",
+      }),
+    ),
+  );
+});

@@ -13,6 +13,7 @@ export interface ProductInput {
   parameters: ProductParameter[];
   moq: string | null;
   leadTimeDays: number | null;
+  leadTimeMaxDays?: number | null;
   leadTimeNote: string;
 }
 
@@ -187,7 +188,7 @@ export function productCopyText(product: ProductRecord): string {
     ...product.parameters.map(({ name, value }) => `${name}：${value}`),
     `计量单位：${product.unit}`,
     `MOQ：${product.moq === null ? "未知" : `${product.moq} ${product.unit}`}`,
-    `交期：${product.leadTimeDays === null ? "未知" : `${product.leadTimeDays} 天`}`,
+    `交期：${product.leadTimeDays === null ? "未知" : `${product.leadTimeDays}–${product.leadTimeMaxDays ?? product.leadTimeDays} 天`}`,
     `交期含义：${product.leadTimeNote || "未说明"}`,
     `档案更新时间：${product.updatedAt}`,
   ].join("\n");

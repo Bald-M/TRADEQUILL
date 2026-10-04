@@ -436,9 +436,123 @@ fn refuses_to_open_newer_schema() {
     connection
         .pragma_update(None, "user_version", 999)
         .expect("set version");
+    connection
+        .execute_batch(
+            "CREATE TABLE future_data(value TEXT); INSERT INTO future_data VALUES ('keep');",
+        )
+        .expect("future data");
     drop(connection);
+    let before = fs::read(root.0.join("tradequill.sqlite3")).expect("read original database");
     let error = initialize(root.0.clone())
         .err()
         .expect("newer schema must fail");
     assert!(error.contains("更新版本"));
+    assert_eq!(
+        fs::read(root.0.join("tradequill.sqlite3")).expect("read refused database"),
+        before,
+        "rejecting a newer schema must not modify its database bytes"
+    );
 }
+
+#[test]
+fn preserves_frozen_schema_two_records_on_repeated_startup() {
+    let root = TempData::new();
+    fs::create_dir_all(&root.0).expect("temp directory");
+    let connection = configured_connection(&root.0.join("tradequill.sqlite3")).expect("database");
+    connection
+        .execute_batch(include_str!("fixtures/schema_v2.sql"))
+        .expect("schema 2 fixture");
+    drop(connection);
+
+    for _ in 0..2 {
+        assert_eq!(
+            initialize(root.0.clone()).expect("upgrade").schema_version,
+            SCHEMA_VERSION
+        );
+        let snapshot = business_snapshot(root.0.clone()).expect("read old records");
+        assert_eq!(snapshot.customers.len(), 1);
+        assert_eq!(snapshot.customers[0].name, "Legacy Buyer");
+        assert_eq!(
+            snapshot.inquiries[0].products,
+            ["自由文本产品 A", "未知规格 B"]
+        );
+        assert_eq!(snapshot.quotes.len(), 1);
+        assert_eq!(snapshot.quotes[0].id, 31);
+        assert_eq!(snapshot.quotes[0].customer_id, 11);
+        assert_eq!(snapshot.quotes[0].inquiry_id, Some(21));
+        assert_eq!(snapshot.quotes[0].content, "只有文本的旧报价，不推断数量");
+        assert_eq!(snapshot.quotes[0].amount, "1234.56");
+        assert_eq!(snapshot.quotes[0].notes, "旧报价备注");
+        assert_eq!(snapshot.samples[0].product, "旧样品自由文本");
+        assert_eq!(snapshot.samples[0].progress.len(), 3);
+        assert_eq!(snapshot.samples[0].tracking_number, "SAMPLE-001");
+        assert!(snapshot.tasks[0].completed);
+        assert_eq!(
+            snapshot.tasks[0].completed_at.as_deref(),
+            Some("2026-09-06T09:35:00Z")
+        );
+        let connection = open(root.0.clone()).expect("reopen");
+        let marker: String = connection
+            .query_row(
+                "SELECT value FROM app_metadata WHERE key='fixture'",
+                [],
+                |row| row.get(0),
+            )
+            .expect("metadata");
+        assert_eq!(marker, "schema-2");
+        let reminders: i64 = connection
+            .query_row(
+                "SELECT COUNT(*) FROM reminder_deliveries WHERE local_date='2026-09-06'",
+                [],
+                |row| row.get(0),
+            )
+            .expect("reminders");
+        assert_eq!(reminders, 1);
+    }
+}
+
+#[test]
+fn failed_migration_rolls_back_schema_and_allows_retry() {
+    let root = TempData::new();
+    fs::create_dir_all(&root.0).expect("temp directory");
+    let connection = configured_connection(&root.0.join("tradequill.sqlite3")).expect("database");
+    connection
+        .execute_batch(
+            "CREATE TABLE app_metadata(key TEXT PRIMARY KEY NOT NULL, value TEXT NOT NULL);
+         INSERT INTO app_metadata VALUES ('product', 'TradeQuill');
+         CREATE TABLE quote_records(marker TEXT);
+         INSERT INTO quote_records VALUES ('must survive');
+         PRAGMA user_version = 1;",
+        )
+        .expect("migration conflict fixture");
+    drop(connection);
+
+    assert!(initialize(root.0.clone()).is_err());
+    let connection =
+        configured_connection(&root.0.join("tradequill.sqlite3")).expect("inspect rollback");
+    let version: i64 = connection
+        .pragma_query_value(None, "user_version", |row| row.get(0))
+        .expect("version");
+    assert_eq!(version, 1);
+    let partial_tables: i64 = connection.query_row("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name IN ('customers', 'inquiries')", [], |row| row.get(0)).expect("schema");
+    assert_eq!(
+        partial_tables, 0,
+        "tables created before the failure must roll back"
+    );
+    let marker: String = connection
+        .query_row("SELECT marker FROM quote_records", [], |row| row.get(0))
+        .expect("original data");
+    assert_eq!(marker, "must survive");
+    connection
+        .execute_batch("DROP TABLE quote_records;")
+        .expect("remove synthetic conflict");
+    drop(connection);
+    assert_eq!(
+        initialize(root.0.clone())
+            .expect("retry migration")
+            .schema_version,
+        SCHEMA_VERSION
+    );
+}
+
+mod commerce;

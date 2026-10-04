@@ -173,6 +173,10 @@ export function ProductForm({
       product?.leadTimeDays === null || product?.leadTimeDays === undefined
         ? ""
         : String(product.leadTimeDays),
+    leadTimeMaxDays:
+      product?.leadTimeMaxDays == null
+        ? (product?.leadTimeDays?.toString() ?? "")
+        : String(product.leadTimeMaxDays),
     leadTimeNote: product?.leadTimeNote ?? "",
     parameters:
       product?.parameters.map((parameter) => ({ ...parameter })) ?? [],
@@ -204,9 +208,18 @@ export function ProductForm({
       form.leadTimeDays &&
       (!/^\d+$/.test(form.leadTimeDays) ||
         !Number.isSafeInteger(Number(form.leadTimeDays)) ||
-        Number(form.leadTimeDays) <= 0)
+        Number(form.leadTimeDays) < 0 ||
+        Number(form.leadTimeDays) > 3650)
     )
-      next.leadTimeDays = "交期需为正整数天数；未知请留空。";
+      next.leadTimeDays = "交期需为 0–3650 的整数天数；未知请留空。";
+    if (
+      form.leadTimeMaxDays &&
+      (!/^\d+$/.test(form.leadTimeMaxDays) ||
+        !form.leadTimeDays ||
+        Number(form.leadTimeMaxDays) < Number(form.leadTimeDays) ||
+        Number(form.leadTimeMaxDays) > 3650)
+    )
+      next.leadTimeMaxDays = "最长交期须不小于最短交期，且不超过 3650 天。";
     if (form.leadTimeDays && !form.leadTimeNote.trim())
       next.leadTimeNote = "请说明交期起点和含义，例如收到订金后至发货。";
     if (
@@ -230,6 +243,11 @@ export function ProductForm({
           parameters: form.parameters,
           moq: form.moq || null,
           leadTimeDays: form.leadTimeDays ? Number(form.leadTimeDays) : null,
+          leadTimeMaxDays: form.leadTimeMaxDays
+            ? Number(form.leadTimeMaxDays)
+            : form.leadTimeDays
+              ? Number(form.leadTimeDays)
+              : null,
           leadTimeNote: form.leadTimeNote,
         }),
       onSaved,
@@ -240,7 +258,14 @@ export function ProductForm({
   }
 
   const input = (
-    key: "sku" | "name" | "unit" | "moq" | "leadTimeDays" | "leadTimeNote",
+    key:
+      | "sku"
+      | "name"
+      | "unit"
+      | "moq"
+      | "leadTimeDays"
+      | "leadTimeMaxDays"
+      | "leadTimeNote",
     label: string,
     hint?: string,
   ) => {
@@ -254,7 +279,7 @@ export function ProductForm({
           inputMode={
             key === "moq"
               ? "decimal"
-              : key === "leadTimeDays"
+              : key === "leadTimeDays" || key === "leadTimeMaxDays"
                 ? "numeric"
                 : undefined
           }
@@ -275,7 +300,16 @@ export function ProductForm({
           {input("name", "产品名称 *")}
           {input("unit", "计量单位 *", "例如件、套、千克；MOQ 沿用此单位。")}
           {input("moq", "MOQ", "最多三位小数；未知留空，不能用 0 代替。")}
-          {input("leadTimeDays", "交期（天）", "正整数；未知留空。")}
+          {input(
+            "leadTimeDays",
+            "交期（天）",
+            "最短交期；0–3650 的整数；未知留空。",
+          )}
+          {input(
+            "leadTimeMaxDays",
+            "最长交期（天）",
+            "留空时沿用最短交期；填写范围时不得小于最短交期。",
+          )}
           {input(
             "leadTimeNote",
             "交期含义",
