@@ -147,6 +147,8 @@ pub struct CatalogSnapshot {
 pub struct KnowledgeSearchInput {
     pub query: String,
     #[serde(default)]
+    pub all_products: bool,
+    #[serde(default)]
     pub product_ids: Vec<i64>,
     #[serde(default)]
     pub document_ids: Vec<i64>,
@@ -1130,7 +1132,7 @@ pub fn search_knowledge(
         }
         let in_scope = match document.product_id {
             None => input.include_general,
-            Some(id) => input.product_ids.contains(&id),
+            Some(id) => input.all_products || input.product_ids.contains(&id),
         };
         if !in_scope {
             continue;

@@ -115,6 +115,100 @@ function workspace(refresh = vi.fn().mockResolvedValue(undefined)) {
 }
 
 describe("local knowledge workspace", () => {
+  it("searches over 100 master products with explicit all-products scope without enumerating IDs", async () => {
+    const user = userEvent.setup();
+    const largeCatalog = [
+      ...products,
+      ...Array.from({ length: 101 }, (_, index) => ({
+        ...products[0],
+        id: index + 3,
+        sku: `SKU-${index + 3}`,
+        name: `型号 ${index + 3}`,
+      })),
+    ];
+    mockedSearch.mockImplementation(async (input) => {
+      if (input.productIds.length > 100)
+        throw new Error("产品范围超过 100 项上限");
+      return input.allProducts || input.productIds.includes(1) ? [snippet] : [];
+    });
+    render(
+      <KnowledgeWorkspace
+        documents={documents}
+        products={largeCatalog}
+        refresh={vi.fn().mockResolvedValue(undefined)}
+        onEditing={vi.fn()}
+      />,
+    );
+    await user.type(screen.getByLabelText("关键词"), "容量");
+    await user.click(screen.getByRole("button", { name: "搜索本地资料" }));
+    expect(
+      await screen.findByRole("button", { name: /型号一手册 · v2 · 第 2 页/ }),
+    ).toBeInTheDocument();
+    expect(mockedSearch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        allProducts: true,
+        productIds: [],
+        includeGeneral: true,
+      }),
+    );
+
+    await user.click(screen.getByRole("checkbox", { name: "全部产品（103）" }));
+    await user.click(
+      screen.getByRole("checkbox", { name: "SKU-103 · 型号 103" }),
+    );
+    await user.click(screen.getByRole("checkbox", { name: "包含通用资料" }));
+    await user.click(screen.getByRole("button", { name: "搜索本地资料" }));
+    expect(mockedSearch).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        allProducts: false,
+        productIds: [103],
+        includeGeneral: false,
+      }),
+    );
+    expect(await screen.findByText(/选定范围没有匹配片段/)).toBeInTheDocument();
+  });
+
+  it.each(["all", "selected"] as const)(
+    "retrieves native saved material with %s scope when the document cache is stale and empty",
+    async (scope) => {
+      const user = userEvent.setup();
+      mockedSearch.mockImplementation(async (input) =>
+        input.allProducts || input.productIds.includes(1) ? [snippet] : [],
+      );
+      render(
+        <KnowledgeWorkspace
+          documents={[]}
+          products={products}
+          refresh={vi.fn().mockRejectedValue(new Error("refresh failed"))}
+          onEditing={vi.fn()}
+        />,
+      );
+      if (scope === "selected") {
+        await user.click(
+          screen.getByRole("checkbox", { name: "全部产品（2）" }),
+        );
+        await user.click(
+          screen.getByRole("checkbox", { name: "SKU-1 · 型号 1" }),
+        );
+      }
+      await user.click(screen.getByRole("checkbox", { name: "包含通用资料" }));
+      await user.type(screen.getByLabelText("关键词"), "容量");
+      await user.click(screen.getByRole("button", { name: "搜索本地资料" }));
+      expect(
+        await screen.findByRole("button", {
+          name: /型号一手册 · v2 · 第 2 页/,
+        }),
+      ).toBeInTheDocument();
+      expect(mockedSearch).toHaveBeenCalledWith(
+        expect.objectContaining({
+          allProducts: scope === "all",
+          productIds: scope === "all" ? [] : [1],
+          includeGeneral: false,
+        }),
+      );
+    },
+  );
+
   it("sends only explicitly selected product and general-material scopes", async () => {
     const user = userEvent.setup();
     mockedSearch.mockResolvedValue([]);
@@ -133,6 +227,7 @@ describe("local knowledge workspace", () => {
     await user.click(screen.getByRole("button", { name: "搜索本地资料" }));
     expect(mockedSearch).toHaveBeenCalledWith({
       query: "容量",
+      allProducts: false,
       productIds: [1],
       documentIds: [],
       includeGeneral: false,
@@ -151,7 +246,11 @@ describe("local knowledge workspace", () => {
     await user.type(screen.getByLabelText("关键词"), "保养");
     await user.click(screen.getByRole("button", { name: "搜索本地资料" }));
     expect(mockedSearch).toHaveBeenCalledWith(
-      expect.objectContaining({ productIds: [], includeGeneral: true }),
+      expect.objectContaining({
+        allProducts: false,
+        productIds: [],
+        includeGeneral: true,
+      }),
     );
   });
 

@@ -95,6 +95,7 @@ export interface CatalogSnapshot {
 
 export interface KnowledgeSearchInput {
   query: string;
+  allProducts: boolean;
   productIds: number[];
   documentIds: number[];
   includeGeneral: boolean;

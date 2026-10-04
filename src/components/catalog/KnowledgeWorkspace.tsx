@@ -167,7 +167,8 @@ export function KnowledgeWorkspace({
     try {
       const next = await searchKnowledge({
         query,
-        productIds,
+        allProducts,
+        productIds: allProducts ? [] : selectedProducts,
         documentIds: [],
         includeGeneral,
         tags: splitTags(tags),

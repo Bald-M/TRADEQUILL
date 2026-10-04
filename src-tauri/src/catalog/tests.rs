@@ -60,6 +60,7 @@ fn document(product_id: Option<i64>, text: &str) -> KnowledgeInput {
 fn search(query: &str, ids: Vec<i64>) -> KnowledgeSearchInput {
     KnowledgeSearchInput {
         query: query.into(),
+        all_products: false,
         product_ids: ids,
         document_ids: vec![],
         tags: vec![],
@@ -469,6 +470,95 @@ fn explicit_general_only_and_empty_scope_do_not_read_product_documents() {
     assert_eq!(found.len(), 1);
     assert_eq!(found[0].document_id, generic.id);
     assert!(!found[0].text.contains("secret"));
+}
+
+#[test]
+fn all_products_search_reads_current_backend_scope_beyond_explicit_id_limit() {
+    let root = TempData::new();
+    let mut ids = Vec::new();
+    for index in 0..103 {
+        ids.push(
+            save_product(root.0.clone(), product(&format!("SKU-{index}")))
+                .unwrap()
+                .id,
+        );
+    }
+    let all = || KnowledgeSearchInput {
+        all_products: true,
+        ..search("shared", vec![])
+    };
+    assert!(search_knowledge(root.0.clone(), all()).unwrap().is_empty());
+    let first = save_knowledge(
+        root.0.clone(),
+        document(Some(ids[102]), "shared first product fact"),
+    )
+    .unwrap();
+    let found = search_knowledge(root.0.clone(), all()).unwrap();
+    assert_eq!(found.len(), 1);
+    assert_eq!(found[0].document_id, first.id);
+    assert_eq!(found[0].product_id, Some(ids[102]));
+
+    // A newly created product and its first document must be visible without
+    // refreshing any client product/document cache or enumerating its IDs.
+    let next = save_product(root.0.clone(), product("SKU-new")).unwrap();
+    let second = save_knowledge(
+        root.0.clone(),
+        document(Some(next.id), "shared new linked product fact"),
+    )
+    .unwrap();
+    let generic = save_knowledge(root.0.clone(), document(None, "shared generic fact")).unwrap();
+    let found = search_knowledge(root.0.clone(), all()).unwrap();
+    assert_eq!(found.len(), 2);
+    assert!(found.iter().any(|snippet| snippet.document_id == second.id));
+    assert!(found
+        .iter()
+        .all(|snippet| snippet.document_id != generic.id));
+
+    let mut update = document(Some(ids[102]), "shared revised current fact");
+    update.id = Some(first.id);
+    update.expected_version = Some(1);
+    save_knowledge(root.0.clone(), update).unwrap();
+    let found = search_knowledge(root.0.clone(), all()).unwrap();
+    let revised = found
+        .iter()
+        .find(|snippet| snippet.document_id == first.id)
+        .unwrap();
+    assert_eq!(revised.version, 2);
+    assert!(revised.text.contains("revised current"));
+    assert!(!revised.text.contains("first product"));
+    set_knowledge_archived(root.0.clone(), second.id, true).unwrap();
+    assert_eq!(search_knowledge(root.0.clone(), all()).unwrap().len(), 1);
+    assert!(search_knowledge(root.0.clone(), search("shared", vec![]))
+        .unwrap()
+        .is_empty());
+
+    let mut general_and_all = all();
+    general_and_all.include_general = true;
+    assert_eq!(
+        search_knowledge(root.0.clone(), general_and_all)
+            .unwrap()
+            .len(),
+        2
+    );
+    let mut too_many_explicit = search("shared", ids);
+    too_many_explicit.all_products = true;
+    assert!(search_knowledge(root.0.clone(), too_many_explicit)
+        .unwrap_err()
+        .contains("范围超过"));
+}
+
+#[test]
+fn omitted_all_products_flag_keeps_empty_scope_closed() {
+    let input: KnowledgeSearchInput = serde_json::from_value(serde_json::json!({
+        "query": "fact", "productIds": [], "confirmedOnly": true,
+        "publicOnly": true, "includeGeneral": false,
+    }))
+    .unwrap();
+    assert!(!input.all_products);
+    let root = TempData::new();
+    let product = save_product(root.0.clone(), product("A")).unwrap();
+    save_knowledge(root.0.clone(), document(Some(product.id), "known fact")).unwrap();
+    assert!(search_knowledge(root.0.clone(), input).unwrap().is_empty());
 }
 
 #[test]
