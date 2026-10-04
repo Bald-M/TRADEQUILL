@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { act, cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -8,8 +8,10 @@ import {
   saveKnowledge,
   saveProduct,
   type KnowledgeDetail,
+  type ProductRecord,
 } from "@/lib/catalog";
 import { KnowledgeForm, ProductForm } from "./CatalogForms";
+import { chooseSelectOption } from "@/test/select";
 
 vi.mock("@/lib/catalog", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/catalog")>();
@@ -152,6 +154,242 @@ describe("ProductForm", () => {
 });
 
 describe("KnowledgeForm", () => {
+  const products: ProductRecord[] = [
+    {
+      id: 17,
+      sku: "SKU-A",
+      name: "测试产品",
+      unit: "件",
+      parameters: [],
+      moq: null,
+      leadTimeDays: null,
+      leadTimeNote: "",
+      archived: false,
+      createdAt: "2026-10-01",
+      updatedAt: "2026-10-02",
+    },
+    {
+      id: 41,
+      sku: "SKU-OLD",
+      name: "历史产品",
+      unit: "件",
+      parameters: [],
+      moq: null,
+      leadTimeDays: null,
+      leadTimeNote: "",
+      archived: true,
+      createdAt: "2026-10-01",
+      updatedAt: "2026-10-02",
+    },
+  ];
+
+  async function fillKnowledge(user: ReturnType<typeof userEvent.setup>) {
+    await user.type(screen.getByLabelText("资料标题 *"), "手册");
+    await user.type(screen.getByLabelText("资料来源 *"), "合成样本");
+    await user.type(screen.getByLabelText("资料正文 *"), "请使用温水。");
+  }
+
+  it("preserves dropdown values after failure and maps product IDs and general scope", async () => {
+    const user = userEvent.setup();
+    knowledgeSave
+      .mockRejectedValueOnce(new Error("保存失败，请重试"))
+      .mockResolvedValueOnce();
+    render(
+      <KnowledgeForm
+        products={products}
+        onSaved={vi.fn().mockResolvedValue(undefined)}
+        onCancel={vi.fn()}
+      />,
+    );
+    expect(
+      screen.getByRole("combobox", { name: "关联产品" }),
+    ).toHaveTextContent("通用资料");
+    await fillKnowledge(user);
+    await chooseSelectOption("关联产品", "SKU-A · 测试产品");
+    await chooseSelectOption("资料类型", "FAQ（问答）");
+    await chooseSelectOption("确认状态", "已确认");
+    await chooseSelectOption("使用范围", "对外可用");
+    await user.click(screen.getByRole("button", { name: "保存资料" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("保存失败");
+    expect(knowledgeSave).toHaveBeenCalledWith(
+      expect.objectContaining({
+        productId: 17,
+        kind: "faq",
+        status: "confirmed",
+        visibility: "public",
+      }),
+    );
+    for (const [label, value] of [
+      ["关联产品", "SKU-A · 测试产品"],
+      ["资料类型", "FAQ（问答）"],
+      ["确认状态", "已确认"],
+      ["使用范围", "对外可用"],
+    ]) {
+      expect(screen.getByRole("combobox", { name: label })).toHaveTextContent(
+        value,
+      );
+    }
+    await chooseSelectOption("关联产品", "通用资料");
+    await user.click(screen.getByRole("button", { name: "保存资料" }));
+    expect(knowledgeSave).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        productId: null,
+        kind: "faq",
+        status: "confirmed",
+        visibility: "public",
+      }),
+    );
+  });
+
+  it("restores archived product labels and keeps the existing document kind disabled", () => {
+    render(
+      <KnowledgeForm
+        detail={{ ...detail, document: { ...detail.document, productId: 41 } }}
+        products={products}
+        onSaved={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    );
+    expect(
+      screen.getByRole("combobox", { name: "关联产品" }),
+    ).toHaveTextContent("SKU-OLD · 历史产品（已归档）");
+    expect(screen.getByRole("combobox", { name: "资料类型" })).toHaveAttribute(
+      "disabled",
+    );
+    expect(
+      screen.getByRole("combobox", { name: "资料类型" }),
+    ).toHaveTextContent("文本条目");
+    expect(
+      screen.getByRole("combobox", { name: "确认状态" }),
+    ).toHaveTextContent("已确认");
+    expect(
+      screen.getByRole("combobox", { name: "使用范围" }),
+    ).toHaveTextContent("对外可用");
+  });
+
+  it("explicitly disables every dropdown during save and after a committed refresh failure", async () => {
+    const user = userEvent.setup();
+    let resolveSave!: () => void;
+    knowledgeSave.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveSave = resolve;
+        }),
+    );
+    render(
+      <KnowledgeForm
+        products={products}
+        onSaved={vi.fn().mockRejectedValue(new Error("刷新失败"))}
+        onCancel={vi.fn()}
+      />,
+    );
+    await fillKnowledge(user);
+    await user.click(screen.getByRole("button", { name: "保存资料" }));
+    for (const trigger of screen.getAllByRole("combobox"))
+      expect(trigger).toHaveAttribute("disabled");
+    await user.click(screen.getByRole("combobox", { name: "关联产品" }));
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+    await act(async () => resolveSave());
+    expect(await screen.findByRole("alert")).toHaveTextContent("数据已保存");
+    for (const trigger of screen.getAllByRole("combobox"))
+      expect(trigger).toHaveAttribute("disabled");
+    expect(knowledgeSave).toHaveBeenCalledOnce();
+  });
+
+  it("clears the confirmed preview when changing document kind", async () => {
+    const user = userEvent.setup();
+    previewImport.mockResolvedValue({
+      token: "preview-kind",
+      fileName: "manual.txt",
+      format: "txt",
+      pages: [{ page: 1, text: "旧文件内容" }],
+      digest: "digest",
+      expiresAt: "2026-10-04T20:00:00Z",
+    });
+    knowledgeSave.mockResolvedValue();
+    render(
+      <KnowledgeForm
+        products={[]}
+        onSaved={vi.fn().mockResolvedValue(undefined)}
+        onCancel={vi.fn()}
+      />,
+    );
+    await chooseSelectOption("资料类型", "文件导入");
+    const file = new File(["old"], "manual.txt", { type: "text/plain" });
+    Object.defineProperty(file, "arrayBuffer", {
+      value: async () => new ArrayBuffer(3),
+    });
+    await user.upload(screen.getByLabelText("选择文件 *"), file);
+    expect(await screen.findByText("旧文件内容")).toBeInTheDocument();
+    await user.click(
+      screen.getByRole("checkbox", {
+        name: "我已核对提取内容，确认将其保存到本地资料库",
+      }),
+    );
+    await chooseSelectOption("资料类型", "FAQ（问答）");
+    expect(screen.queryByText("旧文件内容")).not.toBeInTheDocument();
+    await chooseSelectOption("资料类型", "文件导入");
+    expect(
+      screen.queryByRole("checkbox", {
+        name: "我已核对提取内容，确认将其保存到本地资料库",
+      }),
+    ).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "保存资料" }));
+    expect(knowledgeSave).not.toHaveBeenCalled();
+    expect(screen.getByLabelText("选择文件 *")).toHaveAttribute(
+      "aria-invalid",
+      "true",
+    );
+    await chooseSelectOption("资料类型", "FAQ（问答）");
+    await user.type(screen.getByLabelText("问题与回答 *"), "新问答内容");
+    await user.click(screen.getByRole("button", { name: "保存资料" }));
+    expect(knowledgeSave).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: "faq",
+        previewToken: null,
+        text: "新问答内容",
+      }),
+    );
+  });
+
+  it("ignores late extraction after switching away and back to file import", async () => {
+    const user = userEvent.setup();
+    let resolvePreview!: (
+      preview: Awaited<ReturnType<typeof previewKnowledgeImport>>,
+    ) => void;
+    previewImport.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolvePreview = resolve;
+        }),
+    );
+    render(
+      <KnowledgeForm products={[]} onSaved={vi.fn()} onCancel={vi.fn()} />,
+    );
+    await chooseSelectOption("资料类型", "文件导入");
+    const file = new File(["old"], "late.txt", { type: "text/plain" });
+    Object.defineProperty(file, "arrayBuffer", {
+      value: async () => new ArrayBuffer(3),
+    });
+    await user.upload(screen.getByLabelText("选择文件 *"), file);
+    await waitFor(() => expect(previewImport).toHaveBeenCalledOnce());
+    await chooseSelectOption("资料类型", "文本条目");
+    await chooseSelectOption("资料类型", "文件导入");
+    await act(async () =>
+      resolvePreview({
+        token: "stale",
+        fileName: "late.txt",
+        format: "txt",
+        pages: [{ page: 1, text: "迟到内容" }],
+        digest: "old",
+        expiresAt: "2026-10-04T20:00:00Z",
+      }),
+    );
+    expect(screen.queryByText("迟到内容")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("资料标题 *")).toHaveValue("");
+    expect(screen.getByRole("button", { name: "保存资料" })).toBeEnabled();
+  });
+
   it("ignores a late extraction preview after the user selects another file", async () => {
     const user = userEvent.setup();
     let resolveOld!: (
@@ -175,7 +413,7 @@ describe("KnowledgeForm", () => {
     render(
       <KnowledgeForm products={[]} onSaved={vi.fn()} onCancel={vi.fn()} />,
     );
-    await user.selectOptions(screen.getByLabelText("资料类型"), "file");
+    await chooseSelectOption("资料类型", "文件导入");
     const oldFile = new File(["old"], "old.txt", { type: "text/plain" });
     const newFile = new File(["new"], "new.txt", { type: "text/plain" });
     for (const file of [oldFile, newFile])
@@ -218,7 +456,7 @@ describe("KnowledgeForm", () => {
         onCancel={vi.fn()}
       />,
     );
-    await user.selectOptions(screen.getByLabelText("资料类型"), "file");
+    await chooseSelectOption("资料类型", "文件导入");
     const file = new File(["容量 250 ml"], "manual.md", {
       type: "text/markdown",
     });
