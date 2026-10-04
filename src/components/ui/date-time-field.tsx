@@ -1,4 +1,10 @@
-import { useId, useRef, useState, type KeyboardEvent } from "react";
+import {
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type KeyboardEvent,
+} from "react";
 import {
   CalendarDays,
   ChevronLeft,
@@ -51,6 +57,14 @@ export function DateTimeField({
   const [hour, setHour] = useState("00");
   const [minute, setMinute] = useState("00");
   const calendarRef = useRef<HTMLTableElement>(null);
+  const pendingCalendarFocus = useRef(false);
+  useLayoutEffect(() => {
+    if (!pendingCalendarFocus.current) return;
+    pendingCalendarFocus.current = false;
+    calendarRef.current
+      ?.querySelector<HTMLButtonElement>(`button[data-date="${focusDate}"]`)
+      ?.focus();
+  }, [focusDate]);
   const error = value ? dateInputError(value, withTime) : "";
   const hintId = `${inputId}-format`;
   const errorId = `${inputId}-invalid`;
@@ -78,12 +92,8 @@ export function DateTimeField({
   }
 
   function moveFocus(next: string) {
+    pendingCalendarFocus.current = true;
     setFocusDate(next);
-    requestAnimationFrame(() =>
-      calendarRef.current
-        ?.querySelector<HTMLButtonElement>(`button[data-date="${next}"]`)
-        ?.focus(),
-    );
   }
 
   function calendarKey(event: KeyboardEvent, date: string) {
@@ -314,7 +324,7 @@ export function DateTimeField({
                 </div>
               )}
               {withTime && !timeValid && (
-                <p role="alert" className="mt-1 text-xs text-destructive">
+                <p role="alert" className="mt-1 text-sm text-destructive">
                   小时为 0–23，分钟为 0–59。
                 </p>
               )}
@@ -365,7 +375,7 @@ export function DateTimeField({
         {withTime ? "YYYY-MM-DDTHH:mm · 本地时间" : "YYYY-MM-DD"}
       </p>
       {error && (
-        <p id={errorId} role="alert" className="text-xs text-destructive">
+        <p id={errorId} role="alert" className="text-sm text-destructive">
           {error}
         </p>
       )}

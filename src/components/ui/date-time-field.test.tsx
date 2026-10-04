@@ -64,6 +64,17 @@ describe("DateTimeField", () => {
     );
   });
 
+  it("moves focus synchronously before an immediate Enter can select a reused day button", async () => {
+    const user = userEvent.setup();
+    render(<Field initial="2026-12-31" />);
+    await user.click(screen.getByRole("button", { name: "选择测试日期" }));
+    fireEvent.keyDown(document.activeElement!, { key: "ArrowRight" });
+    expect(screen.getByRole("button", { name: "2027-01-01" })).toHaveFocus();
+    await user.keyboard("{Enter}");
+    await user.click(screen.getByRole("button", { name: "应用" }));
+    expect(screen.getByRole("textbox")).toHaveValue("2027-01-01");
+  });
+
   it("cancels a draft with Escape, Cancel, or an outside click and restores focus", async () => {
     const user = userEvent.setup();
     render(<Field />);
