@@ -26,3 +26,17 @@
 - 用户调用 ask-matt 时读取 `/Users/zhangzihan/.codex/skills/ask-matt/SKILL.md`，按任务选择其中的流程；修改本文件时读取 `/Users/zhangzihan/.codex/skills/writing-for-agents/SKILL.md`。
 - 需求来源优先使用当次用户指令及明确关联的规格。需要引入 issue tracker、`CONTEXT.md` 或 ADR 布局时，按 `setup-matt-pocock-skills` 完成配置；配置前不假定这些文件或服务存在。
 - 交付说明包含变更、实际验证结果和未完成项；远端交付适用时附 PR 与合并结果。
+
+## Agent skills
+
+### Issue tracker
+
+创建、拆分或更新需求时，使用 GitHub Issues，按 [Issue tracker](docs/agents/issue-tracker.md) 查重、发布并核对父子及阻塞关系。
+
+### Triage labels
+
+判断任务分流与实施就绪状态时，使用 [分流标签](docs/agents/triage-labels.md) 的标准角色和条件。
+
+### Domain docs
+
+领域建模及工程流程探索使用单一上下文；读取规则与文档布局见 [领域文档](docs/agents/domain.md)。
