@@ -26,7 +26,7 @@
 - Windows 与 macOS 安装包的实机安装和启动验收；当前仅记录 macOS Apple Silicon 调试 `.app` 的实机运行结果。
 - Windows 签名、macOS 正式签名与公证、正式分发、自动更新。
 - 业务数据导入导出及完整备份恢复。
-- ask-matt 的 Issue tracker 与领域文档布局尚未完成项目级配置。
+- 框架验收时 ask-matt 尚未配置；2026-10-04 已补齐 [Issue tracker](agents/issue-tracker.md)、[分流标签](agents/triage-labels.md) 和 [领域文档读取规则](agents/domain.md)。这不代表相关功能需求已实现。
 
 ## 客户业务闭环验收（Issue #3）
 
