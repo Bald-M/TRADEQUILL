@@ -464,6 +464,18 @@ export function Quotes(props: Props) {
         (s) => s.quoteId === q.id || s.previousQuoteId === q.id,
       ),
   );
+  if (sellerEditing)
+    return (
+      <Card className="shadow-none">
+        <CardContent className="pt-5">
+          <SellerForm
+            seller={snapshot.seller}
+            refresh={refresh}
+            done={() => setSellerEditing(false)}
+          />
+        </CardContent>
+      </Card>
+    );
   return (
     <div className="space-y-4">
       {editing ? (
@@ -520,17 +532,6 @@ export function Quotes(props: Props) {
               选品生成报价
             </Button>
           </div>
-          {sellerEditing && (
-            <Card className="shadow-none">
-              <CardContent className="pt-5">
-                <SellerForm
-                  seller={snapshot.seller}
-                  refresh={refresh}
-                  done={() => setSellerEditing(false)}
-                />
-              </CardContent>
-            </Card>
-          )}
           {quote && (
             <Card className="shadow-none">
               <CardContent className="space-y-5 pt-5">

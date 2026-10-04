@@ -233,7 +233,10 @@ export function Products({ snapshot, refresh, navigate, selectedId }: Props) {
           />
           包含归档
         </label>
-        <Button disabled={offerEditing} onClick={() => setEditing(null)}>
+        <Button
+          disabled={offerEditing || editing !== undefined}
+          onClick={() => setEditing(null)}
+        >
           新建产品
         </Button>
       </div>
@@ -416,7 +419,10 @@ export function Suppliers({ snapshot, refresh, navigate, selectedId }: Props) {
           />
           包含归档
         </label>
-        <Button disabled={offerEditing} onClick={() => setEditing(null)}>
+        <Button
+          disabled={offerEditing || editing !== undefined}
+          onClick={() => setEditing(null)}
+        >
           新建供应商
         </Button>
       </div>

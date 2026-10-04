@@ -944,3 +944,114 @@ fn schema_four_failure_rolls_back_product_columns_and_preserves_knowledge() {
     connection.execute_batch("DROP TABLE suppliers;").unwrap();
     assert_eq!(initialize(root.0.clone()).unwrap().schema_version, 4);
 }
+
+#[test]
+fn replacing_quote_cannot_orphan_existing_product_costs() {
+    let root = seeded();
+    let a = save_product(
+        root.0.clone(),
+        ProductInput {
+            id: None,
+            data: product("A"),
+        },
+    )
+    .unwrap();
+    let b = save_product(
+        root.0.clone(),
+        ProductInput {
+            id: None,
+            data: product("B"),
+        },
+    )
+    .unwrap();
+    let mut initial = quotation(a, "cost-source");
+    initial
+        .fields
+        .lines
+        .push(quotation(b, "unused").fields.lines.remove(0));
+    let first = save_structured_quote(root.0.clone(), initial).unwrap();
+    let id = create_order(root.0.clone(), first, "2026-10-04".into()).unwrap();
+    let mut entry = cost("purchase", "5", "USD");
+    entry.product_id = Some(a);
+    save_order_costs(
+        root.0.clone(),
+        CostsInput {
+            order_id: id,
+            expected_version: 1,
+            entries: vec![entry.clone()],
+            complete: false,
+            completeness_note: String::new(),
+            reason: "Initial cost".into(),
+        },
+    )
+    .unwrap();
+    let mut revision = quotation(b, "cost-source-revision");
+    revision.previous_quote_id = Some(first);
+    let second = save_structured_quote(root.0.clone(), revision).unwrap();
+    let update = |version| OrderUpdate {
+        id,
+        expected_version: version,
+        ordered_on: "2026-10-04".into(),
+        delivery_on: None,
+        notes: String::new(),
+        source_quote_id: second,
+        reason: "Remove A".into(),
+    };
+    assert!(update_order(root.0.clone(), update(2))
+        .unwrap_err()
+        .contains("移除了现有成本"));
+    let unchanged = order(&root, id).data;
+    assert_eq!(unchanged.source_quote_id, first);
+    assert_eq!(unchanged.version, 2);
+    assert_eq!(unchanged.costs[0].product_id, Some(a));
+    assert_eq!(order_history(root.0.clone(), id).unwrap().len(), 2);
+    entry.product_id = None;
+    save_order_costs(
+        root.0.clone(),
+        CostsInput {
+            order_id: id,
+            expected_version: 2,
+            entries: vec![entry],
+            complete: false,
+            completeness_note: String::new(),
+            reason: "Retain expense at order level".into(),
+        },
+    )
+    .unwrap();
+    update_order(root.0.clone(), update(3)).unwrap();
+    let changed = order(&root, id).data;
+    assert_eq!(changed.source_quote_id, second);
+    assert_eq!(changed.costs[0].amount, "5.00");
+    assert_eq!(changed.costs[0].product_id, None);
+}
+
+#[test]
+fn product_catalog_and_quote_snapshots_enforce_the_same_moq_limit() {
+    let root = seeded();
+    let mut fields = product("MOQ-LIMIT");
+    fields.moq = Some("999999999.999".into());
+    let id = save_product(
+        root.0.clone(),
+        ProductInput {
+            id: None,
+            data: fields.clone(),
+        },
+    )
+    .unwrap();
+    let mut input = quotation(id, "MOQ-valid");
+    input.fields.lines[0].product = fields.clone();
+    save_structured_quote(root.0.clone(), input).unwrap();
+    fields.moq = Some("1000000000".into());
+    assert!(save_product(
+        root.0.clone(),
+        ProductInput {
+            id: Some(id),
+            data: fields.clone()
+        }
+    )
+    .is_err());
+    let mut input = quotation(id, "MOQ-invalid");
+    input.fields.lines[0].product = fields;
+    assert!(save_structured_quote(root.0.clone(), input).is_err());
+    assert_eq!(commerce_snapshot(root.0.clone()).unwrap().quotes.len(), 1);
+}

@@ -945,6 +945,7 @@ export function Orders({
           items.map((o) => (
             <button
               key={o.id}
+              disabled={editor !== null}
               className="flex w-full flex-wrap justify-between gap-3 rounded-lg border bg-card p-4 text-left text-sm focus-visible:ring-2 focus-visible:ring-ring"
               onClick={() => {
                 setEditor(null);

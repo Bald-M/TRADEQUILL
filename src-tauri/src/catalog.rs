@@ -287,7 +287,7 @@ fn ensure_managed_capacity(connection: &Connection, max_bytes: i64) -> Result<()
     Ok(())
 }
 
-fn positive_decimal(value: Option<String>) -> Result<Option<String>, String> {
+pub(crate) fn positive_decimal(value: Option<String>) -> Result<Option<String>, String> {
     let Some(value) = value.filter(|s| !s.trim().is_empty()) else {
         return Ok(None);
     };

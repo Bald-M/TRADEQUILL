@@ -41,10 +41,7 @@ pub(super) fn validate_product(mut product: Product) -> Result<Product, String> 
         product.lead_time_note = "确认订单后".into();
     }
     product.notes = optional(product.notes, "产品备注", 2000)?;
-    product.moq = optional_decimal(product.moq, 3, "MOQ")?;
-    if product.moq.as_deref() == Some("0.000") {
-        return Err("MOQ 须大于零；未知时请留空。".into());
-    }
+    product.moq = crate::catalog::positive_decimal(product.moq)?;
     lead_days(product.lead_days_min, product.lead_days_max)?;
     if product.parameters.len() > 30 {
         return Err("每个产品最多 30 个参数。".into());
@@ -225,10 +222,7 @@ pub fn save_offer(data_dir: PathBuf, input: OfferInput) -> Result<i64, String> {
     if offer.price.is_some() && offer.quoted_on.is_none() {
         return Err("填写采购参考价时须同时填写报价日期。".into());
     }
-    offer.moq = optional_decimal(offer.moq, 3, "供货 MOQ")?;
-    if offer.moq.as_deref() == Some("0.000") {
-        return Err("供货 MOQ 须大于零；未知时留空。".into());
-    }
+    offer.moq = crate::catalog::positive_decimal(offer.moq)?;
     lead_days(offer.lead_days_min, offer.lead_days_max)?;
     offer.notes = optional(offer.notes, "供货备注", 2000)?;
     let mut connection = open(data_dir)?;

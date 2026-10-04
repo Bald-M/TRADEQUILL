@@ -7,6 +7,10 @@ import { getBusinessSnapshot } from "@/lib/business";
 import { getCatalogSnapshot, saveKnowledge, saveProduct } from "@/lib/catalog";
 import { getWorkspaceStatus } from "@/lib/workspace";
 import App from "./App";
+import {
+  getCommerceSnapshot,
+  saveProduct as saveCommerceProduct,
+} from "@/lib/commerce";
 
 const { toggleTheme } = vi.hoisted(() => ({ toggleTheme: vi.fn() }));
 vi.mock("@/hooks/use-daily-reminder", () => ({ useDailyReminder: () => "" }));
@@ -28,9 +32,21 @@ vi.mock("@/lib/catalog", async (importOriginal) => {
   };
 });
 
+vi.mock("@/lib/commerce", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/commerce")>();
+  return { ...actual, getCommerceSnapshot: vi.fn(), saveProduct: vi.fn() };
+});
 afterEach(cleanup);
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.mocked(getCommerceSnapshot).mockResolvedValue({
+    products: [],
+    suppliers: [],
+    offers: [],
+    quotes: [],
+    orders: [],
+    seller: "",
+  });
   vi.mocked(getWorkspaceStatus).mockResolvedValue({
     databasePath: "/tmp/tradequill.sqlite3",
     attachmentsPath: "/tmp/attachments",
@@ -136,4 +152,34 @@ describe("App catalog navigation protection", () => {
     await user.click(screen.getByRole("button", { name: "取消" }));
     expect(customers).toBeEnabled();
   });
+});
+
+it("protects all navigation while a commerce save fails, then unlocks on explicit cancellation", async () => {
+  const user = userEvent.setup();
+  vi.mocked(saveCommerceProduct).mockRejectedValue(new Error("Duplicate SKU"));
+  render(<App />);
+  await waitFor(() => expect(getBusinessSnapshot).toHaveBeenCalledOnce());
+  await user.click(screen.getByRole("button", { name: "业务管理" }));
+  await user.click(screen.getByRole("button", { name: "产品、报价与订单" }));
+  await user.click(await screen.findByRole("button", { name: "新建产品" }));
+  await user.type(screen.getByLabelText("产品编号 *"), "KEPT");
+  await user.type(screen.getByLabelText("产品名称 *"), "Unsaved");
+  await user.type(screen.getByLabelText("计量单位 *"), "pcs");
+  for (const name of [
+    "工作台",
+    "客户管理",
+    "产品与知识库",
+    "跟进日历",
+    "报价单",
+    "产品档案",
+    "新建产品",
+  ])
+    expect(screen.getByRole("button", { name, exact: true })).toBeDisabled();
+  await user.click(screen.getByRole("button", { name: "保存", exact: true }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("Duplicate SKU");
+  expect(screen.getByLabelText("产品名称 *")).toHaveValue("Unsaved");
+  expect(screen.getByRole("button", { name: "产品与知识库" })).toBeDisabled();
+  await user.click(screen.getByRole("button", { name: "取消并放弃输入" }));
+  expect(screen.getByRole("button", { name: "产品与知识库" })).toBeEnabled();
+  expect(screen.getByRole("button", { name: "报价单" })).toBeEnabled();
 });

@@ -1,6 +1,7 @@
 import {
   createContext,
   useContext,
+  useEffect,
   useId,
   useRef,
   useState,
@@ -15,6 +16,9 @@ import { SelectField } from "@/components/ui/select";
 import { DateTimeField } from "@/components/ui/date-time-field";
 
 const FormDisabled = createContext(false);
+export const CommerceEditing = createContext<
+  ((editing: boolean) => void) | null
+>(null);
 export function SelectInput(props: ComponentProps<typeof SelectField>) {
   const formDisabled = useContext(FormDisabled);
   return <SelectField {...props} disabled={formDisabled || props.disabled} />;
@@ -144,6 +148,11 @@ export function SaveForm({
   onCancel: () => void;
   label?: string;
 }) {
+  const onEditing = useContext(CommerceEditing);
+  useEffect(() => {
+    onEditing?.(true);
+    return () => onEditing?.(false);
+  }, [onEditing]);
   const [busy, setBusy] = useState(false);
   const [committed, setCommitted] = useState(false);
   const [error, setError] = useState("");

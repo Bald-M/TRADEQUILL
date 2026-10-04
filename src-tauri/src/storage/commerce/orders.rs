@@ -250,6 +250,13 @@ pub fn update_order(data_dir: PathBuf, input: OrderUpdate) -> Result<(), String>
         if quote.fields.currency != order.quote.fields.currency && !order.costs.is_empty() {
             return Err("已有成本记录，不能更改订单币种；请先更正成本或取消后重开。".into());
         }
+        if order.costs.iter().any(|entry| {
+            entry
+                .product_id
+                .is_some_and(|id| !quote.fields.lines.iter().any(|line| line.product_id == id))
+        }) {
+            return Err("新报价修订移除了现有成本关联的产品；请先在成本中解除产品/供货关联或更正该费用，再承接修订。原订单和成本已保留。".into());
+        }
         transaction
             .execute(
                 "INSERT INTO order_quote_sources(quote_id,order_id) VALUES (?1,?2)",

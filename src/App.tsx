@@ -99,6 +99,7 @@ function App() {
   };
 
   const [catalogEditing, setCatalogEditing] = useState(false);
+  const [commerceEditing, setCommerceEditing] = useState(false);
   const { dark, toggleTheme } = useTheme();
   const activePage = pages.find((item) => item.id === page)!;
   const reminderMessage = useDailyReminder(storage.kind === "ready");
@@ -194,7 +195,10 @@ function App() {
               variant={page === id ? "secondary" : "ghost"}
               className="h-11 w-full justify-start gap-3"
               aria-current={page === id ? "page" : undefined}
-              disabled={catalogNavigationBlocked && id !== "catalog"}
+              disabled={
+                (catalogNavigationBlocked && id !== "catalog") ||
+                commerceEditing
+              }
               aria-describedby={
                 catalogNavigationBlocked && id !== "catalog"
                   ? "catalog-editing-navigation-note"
@@ -207,6 +211,11 @@ function App() {
             </Button>
           ))}
         </nav>
+        {commerceEditing && (
+          <p role="status" className="mt-3 px-3 text-xs text-muted-foreground">
+            请先保存或取消当前交易编辑，再切换页面。
+          </p>
+        )}
         {catalogNavigationBlocked && (
           <p
             id="catalog-editing-navigation-note"
@@ -479,6 +488,7 @@ function App() {
                   aria-current={
                     businessSection === "followups" ? "page" : undefined
                   }
+                  disabled={commerceEditing}
                   onClick={() => setBusinessSection("followups")}
                 >
                   跟进日历
@@ -490,6 +500,7 @@ function App() {
                   aria-current={
                     businessSection === "commerce" ? "page" : undefined
                   }
+                  disabled={commerceEditing}
                   onClick={() => setBusinessSection("commerce")}
                 >
                   产品、报价与订单
@@ -534,6 +545,7 @@ function App() {
                       refresh={refreshAll}
                       route={commerceRoute}
                       navigate={openCommerce}
+                      onEditing={setCommerceEditing}
                     />
                   )}
                 </>
