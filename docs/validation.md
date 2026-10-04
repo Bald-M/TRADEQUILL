@@ -113,3 +113,18 @@
 
 - Windows 实际 WebView 交互、字体与系统窗口表现；双平台 CI 编译成功不能替代 Windows 人工验收。
 - Windows/macOS 正式安装包安装、签名与公证。本次未触发额外发布或部署。
+
+## PR #41 离线功能交付复核
+
+2026-10-04，macOS Apple Silicon。将 `main` 的日期控件和需求流程文档（`464aaf1`）集成到产品知识库分支，保留两边的更新日志与历史验收记录。受测代码为 `3fe3356`，本节补充本次复核，不将前面的历史结果当作本次检查。
+
+- `pnpm format:check`、`pnpm build`、`pnpm test`：通过，13 个文件、55 项前端测试；前端代码随后未改动。
+- `cargo fmt --manifest-path src-tauri/Cargo.toml --check`、`cargo test --manifest-path src-tauri/Cargo.toml --locked`、`cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --locked -- -D warnings`：通过，21 项 Rust 测试。共享构建目录曾因缺失依赖产物导致文档测试失败，改用独立 `CARGO_TARGET_DIR` 后完整测试与 Clippy 均通过。
+- Standards 全量审查通过；Spec 全量审查发现多个关键词分散命中标题、标签和正文时，片段可能缺少正文命中位置。修复后两项增量复审均通过。新增保存→检索回归在原实现失败、修复后通过，覆盖千字后命中、大小写、中文和 `İ` 小写扩展字符的原文定位。
+- 修复后的隔离 macOS 调试 `.app` 构建并实际运行；正式配置的 `pnpm tauri build --no-bundle` release 原生编译通过。
+- 真实桌面中原有合成产品参数、MOQ、交期和 PDF 保留；检索 `MOQ` 仍能打开第 1 页原文。通过界面保存一份长文本，退出后用修复包重新打开，检索 `specification sample-tag STEEL` 返回正文后段的 `Steel 本地资料`，保留原文大小写和上下文。Tab 到达结果，Enter 打开资料并将焦点定位到对应页。
+- 900 × 600 浅/深主题下，长片段换行且可随页面滚动，无页面横向溢出。业务页的新日历弹层仍在窗口内，Escape 保留日期并恢复触发按钮焦点。
+
+本次新增截图：[匹配片段浅色](assets/validation/issue17/snippet-light-min.png)、[匹配片段深色](assets/validation/issue17/snippet-dark-min.png)、[日历集成](assets/validation/issue17/date-integration-min.png)。截图仅含隔离验收库中的合成资料。
+
+Windows 实际 WebView、安装包安装、签名和公证仍未执行；远端 CI 以最终 PR head 为准。此 PR 仅交付 #11/#23，#17 的在线 AI 需求保持未完成。
