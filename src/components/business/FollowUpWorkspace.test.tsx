@@ -119,3 +119,26 @@ describe("FollowUpWorkspace", () => {
     expect(mockedSetFollowUpTaskCompleted).toHaveBeenCalledOnce();
   });
 });
+
+it("filters an exact local date and shows no tasks for empty or partial dates", () => {
+  render(
+    <FollowUpWorkspace
+      snapshot={snapshot}
+      refresh={vi.fn()}
+      reminderMessage=""
+      openCustomers={vi.fn()}
+    />,
+  );
+  const calendar = screen
+    .getByText("按日期查看")
+    .closest<HTMLElement>('[data-slot="card"]')!;
+  const input = within(calendar).getByRole("textbox", { name: "日历日期" });
+  for (const value of ["", "2026-09", "2026-09-27", "2026-02-30"]) {
+    fireEvent.change(input, { target: { value } });
+    expect(
+      within(calendar).queryByText("Cross-day follow-up"),
+    ).not.toBeInTheDocument();
+  }
+  fireEvent.change(input, { target: { value: "2026-09-28" } });
+  expect(within(calendar).getByText("Cross-day follow-up")).toBeInTheDocument();
+});

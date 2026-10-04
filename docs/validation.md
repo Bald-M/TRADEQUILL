@@ -51,3 +51,32 @@
 
 - Windows 实机运行与安装包安装。
 - macOS 系统通知权限提示和通知投递未在人工验收中触发；提醒的到期判定、每日一次去重和 IPC 已由自动测试及本机构建覆盖。
+
+## 共用日期与本地时间入口（Issue #27）
+
+环境：2026-10-04，macOS Apple Silicon，独立验收应用标识 `com.tradequill.validation.issue27`；只使用 Date QA 等测试资料。基点为 `24a5ebe`，本节记录 #27 分支中含同步日历焦点和错误文案去重修复的代码，未使用其他任务的未提交内容。
+
+### 自动验证
+
+- `pnpm install --frozen-lockfile`、`pnpm typecheck`、`pnpm build`、`pnpm format:check` 通过。
+- `pnpm test`：9 个文件、35 项测试通过。覆盖五个表单的回填、清空必填、非法日期拦截、失败保留与重试；日历精确筛选、原有跨日分组；日期键盘编辑、跨年选取、立即 Enter 焦点回归、Escape/取消/遮罩、小时分钟、禁用和外部值更新。
+- 以 `TZ=America/Los_Angeles`、`TZ=Pacific/Kiritimati`、`TZ=Pacific/Apia` 分别执行 `pnpm exec vitest run src/lib/date-input.test.ts src/components/ui/date-time-field.test.tsx src/components/business/BusinessDates.test.tsx`：各 15 项通过。覆盖午夜、UTC 两侧日期和夏令时缺失/重复墙上时间，不作 UTC 转换。星期计算采用纯 Gregorian 日历天数，另覆盖 Apia 曾跳过的 `2011-12-30`。这是自动行为测试，不是这些地区的实机验收。
+- `cargo fmt --manifest-path src-tauri/Cargo.toml --check`、`pnpm check:rust`、`cargo test --manifest-path src-tauri/Cargo.toml --locked` 通过（6 个存储测试）。Rust 源码、IPC 和 SQLite schema 未修改。
+- `pnpm tauri build --debug --bundles app --config <临时验收配置>` 通过，使用独立构建目录。配置仅覆盖产品名、应用标识与窗口初始尺寸，生成 macOS Apple Silicon 调试 `.app`；不代表签名、公证或安装包分发验收。
+
+### macOS 真实 WebView 验收
+
+- 询盘日期 `2026-12-31` 打开后方向键跨年、Enter 选取，Escape 保留原值，焦点回到打开按钮；保存询盘并重启后日期不变。
+- 跟进时间从 `2026-12-31T23:59` 跨年选至 `2027-01-01`，设置小时/分钟为 `00:05` 后回填、保存，业务页和日历均显示 `2027-01-01 00:05`；再次启动并编辑时回填一致。
+- 发现并修复连续方向键/Enter 可能赶在异步焦点更新前选择错误日期的问题；最终同步焦点实现经实机复验和自动回归测试通过。
+- 1280×820 和 900×600 均检查浅/深主题。日历与时间弹层完整处于窗口内，六周月份及时间错误导致内容增高时可以内部滚动，取消/应用可达；Tab 焦点可见，Escape 退出。
+- 小时 `24` 显示范围错误并禁用应用；非法日期文本提交被拦截、草稿保留，错误提示不重复。清空日历日期显示“请选择有效日期查看安排”，不混入全部任务。
+- 短暂对独立验收数据库持有排他锁，真实 IPC 保存返回 `database is locked`；日期草稿 `2027-01-03T00:05` 保留，保存中入口禁用，释放锁后重试成功并显示正确日期。锁已释放，无测试数据写入正式应用目录。
+- 最小窗口页面沿用已有 `body` 的 900px 最小宽度，出现系统纵向滚动条时仍可能有页面级横向滚动条；日期弹层本身未超出窗口。本票未更改全局布局约束。
+
+截图：[浅色 1280](assets/validation/issue27/light-1280.png)、[深色 1280](assets/validation/issue27/dark-1280.png)、[浅色 900](assets/validation/issue27/light-900.png)、[深色 900](assets/validation/issue27/dark-900.png)、[时间错误与禁用](assets/validation/issue27/error-900.png)、[真实保存失败保留输入](assets/validation/issue27/save-failure-900.png)、[清空日期](assets/validation/issue27/empty-900.png)。
+
+### 本次未验证
+
+- Windows 实际 WebView 交互、字体与系统窗口表现；双平台 CI 编译成功不能替代 Windows 人工验收。
+- Windows/macOS 正式安装包安装、签名与公证。本次未触发额外发布或部署。
