@@ -27,7 +27,6 @@ jobs:
           components: rustfmt, clippy
       - run: pnpm install --frozen-lockfile
       - run: pnpm format:check
-      - run: pnpm test
       - run: pnpm build
       - run: pnpm test
       - run: cargo fmt --manifest-path src-tauri/Cargo.toml --check

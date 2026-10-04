@@ -54,7 +54,7 @@
 
 ## 产品、报价、订单与经营统计验收（Issue #10，子任务 #11–#16）
 
-日期：2026-10-03 至 2026-10-04；macOS Apple Silicon。本次使用独立验收应用标识和 SQLite 目录，仅录入虚构的 QA 客户、产品及供应商。实现候选 `a62c155`，随后补充最小窗口滚动条修复和验收测试；精确交付版本以关联 PR 的 head 为准。以下记录是本次结果，上文为历史结果。
+日期：2026-10-03 至 2026-10-04；macOS Apple Silicon。使用独立验收应用标识和 SQLite 目录，仅录入虚构的 QA 客户、产品及供应商。实现候选 `a62c155`，随后补充最小窗口滚动条修复和验收测试。以下是整合主分支前的历史结果；最终 schema 4 及共用产品、控件的验证见文末「Issue #10 主分支整合验收」。
 
 ### 自动验证
 
@@ -227,3 +227,34 @@ Windows 实际 WebView、安装包安装、签名和公证仍未执行；远端 
 ### 平台限制
 
 Windows 实际 WebView 交互、字体、安装及系统窗口行为仍未执行；双平台远端 CI 以最终 PR head 检查为准，不能替代 Windows 人工验收。未生成或安装正式分发包，未执行签名、公证或额外部署。
+
+## Issue #10 主分支整合验收
+
+环境：2026-10-04，macOS Apple Silicon；整合主分支 `e5ba26a`，受测实现 `67c34c6`，类型兼容性修正后的候选 `6c6e132`。使用独立应用标识 `com.tradequill.issue10integration` 和合成资料。上文的 schema 3 交易验收属于旧候选，不能替代本节结果。
+
+### 本地检查与审查
+
+- `pnpm install --frozen-lockfile`、`pnpm format:check`、`pnpm build` 通过。`pnpm test` 在 `67c34c6` 通过 15 个文件、94 项；`6c6e132` 仅移除测试查询不支持的 `exact` 选项，随后主导航 4 项测试与完整类型检查/生产构建再次通过。
+- `cargo fmt --manifest-path src-tauri/Cargo.toml --check`、`cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --locked -- -D warnings` 通过；`cargo test --manifest-path src-tauri/Cargo.toml --locked` 通过 37 项。
+- 新增回归使用冻结的真实 schema 3 产品/知识库结构，验证迁移至 schema 4、共享产品 ID 与资料保留、报价快照隔离、从 schema 2/3 失败时事务回滚，以及高版本拒绝降级。草稿订单切换报价修订时，失去产品关联的费用会阻止保存且不改变订单/审计；明确解除关联后可重试并保留金额。
+- 前端新增共享 Select/日期控件、写入成功但刷新失败的恢复、交易编辑中主导航/模块导航的输入保护，以及产品交期范围和统一 MOQ 边界回归。
+- `pnpm tauri build --debug --bundles app --config <隔离验收配置>` 在 900×600、1280×820 配置下均生成并启动调试 `.app`；正式配置 `pnpm tauri build --no-bundle` 的 macOS Apple Silicon release 原生编译通过。
+- Standards 与 Spec 两项独立审查均完成修复复审：处理编辑中切换导航丢失输入、MOQ 校验分歧和订单修订留下无效费用产品关联。CI 保留主分支原有测试步骤，移除整合产生的重复执行。
+
+### 真实桌面、PDF 与持久化
+
+1. 从已发布的 schema 3 结构和合成旧客户/简单报价启动应用，迁移为 schema 4。产品与知识库入口将同一产品 `SHARED-QA` 的交期从 14 天改为 14–21 天；交易入口立即显示相同记录及原有含义「收到订金后」，供应商关联保留同一产品 ID。
+2. 真实 UI 创建供应商及 USD 2.5000 供货参考价，选品生成 `QT-000001-R1`：100 × 5.1250 = 512.50，加客户运费 10，合计 USD 522.50。短暂持有隔离数据库排他锁时，真实 IPC 保存失败保留客户、日期和明细；编辑中的主导航和模块导航保持禁用，释放锁后成功重试，导航恢复。
+3. 通过原生保存对话框导出双语 PDF，使用 Poppler 渲染并逐页目视检查，使用 pypdf 核对一页文本。中文参数、交期含义、数量、单价、条款及 USD 522.50 合计一致；未包含供应商、内部备注或成本。旧候选的多页回归记录见上文，当前 Rust PDF 测试继续通过。
+4. 报价转 `SO-000001`，草稿补充交付日期 `2026-10-25`，确认后销售冻结；未知成本仍显示待计算。调用参考价生成待确认采购 250.00，核实后确认并录入实际运费 20.00；明确其余费用为零后，总费用 270.00、利润 252.50、利润率 48.33%。
+5. 统计起止均设为 `2026-10-04`，纳入 1 个已确认订单。成本完整分组下钻并打开订单后，收入、费用、利润一致。
+6. 退出并重启调试应用后，共享产品、供货关联、报价、已确认订单、交付日期及成本均保留。只读核对 schema 为 4，`integrity_check=ok`，旧客户/询盘/简单报价保留，订单有创建、交付日期修改、确认及成本更正 4 条审计快照。
+7. 900×600 和 1280×820 均核对浅/深主题，无页面横向滚动条。最小窗口日期弹层可达，方向键后 Escape 保留原日期并返回触发器；Select 方向键和 Enter 可选运费分类，Escape 保留旧选项，Tab 到达下一日期字段且焦点可见。加载、刷新失败及重试状态由本次真实控件集成测试覆盖。
+
+截图均为原生 WebView 和合成资料，Retina 像素尺寸为逻辑窗口的 2 倍：[标准窗口浅色](validation/issue10/integration-product-light-1280.png)、[标准窗口深色](validation/issue10/integration-product-dark-1280.png)、[最小窗口空状态](validation/issue10/integration-empty-light.png)、[最小窗口真实保存失败](validation/issue10/integration-save-failure-light.png)、[日期弹层](validation/issue10/integration-calendar-light.png)、[订单利润](validation/issue10/integration-profit-light.png)、[深色统计](validation/issue10/integration-report-dark.png)、[深色键盘焦点](validation/issue10/integration-keyboard-dark.png)。
+
+### 未验证与升级边界
+
+- Windows 实机 UI、原生保存对话框、安装包安装和 macOS Intel 实机未执行；远端跨平台编译/测试以关联 PR 最新 head 的 Checks 为准，历史成功不算本次结果。
+- 未执行正式签名、公证、发行安装包、自动更新或额外部署。
+- schema 4 复用已发布产品表并追加交易结构，保留知识库数据；不支持原地降级。升级前完整备份应用数据目录，回退时恢复升级前备份，不修改 `user_version` 绕过保护。
