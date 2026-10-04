@@ -174,8 +174,8 @@ it("protects all navigation while a commerce save fails, then unlocks on explici
     "产品档案",
     "新建产品",
   ])
-    expect(screen.getByRole("button", { name, exact: true })).toBeDisabled();
-  await user.click(screen.getByRole("button", { name: "保存", exact: true }));
+    expect(screen.getByRole("button", { name })).toBeDisabled();
+  await user.click(screen.getByRole("button", { name: "保存" }));
   expect(await screen.findByRole("alert")).toHaveTextContent("Duplicate SKU");
   expect(screen.getByLabelText("产品名称 *")).toHaveValue("Unsaved");
   expect(screen.getByRole("button", { name: "产品与知识库" })).toBeDisabled();
