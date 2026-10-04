@@ -66,6 +66,7 @@ export function DateTimeField({
       ?.focus();
   }, [focusDate]);
   const error = value ? dateInputError(value, withTime) : "";
+  const showError = error && !(invalid && describedBy);
   const hintId = `${inputId}-format`;
   const errorId = `${inputId}-invalid`;
   const draft = withTime
@@ -143,7 +144,11 @@ export function DateTimeField({
           aria-label={label}
           aria-required={required}
           aria-invalid={Boolean(invalid || error)}
-          aria-describedby={[describedBy, hintId, error ? errorId : undefined]
+          aria-describedby={[
+            describedBy,
+            hintId,
+            showError ? errorId : undefined,
+          ]
             .filter(Boolean)
             .join(" ")}
           value={value}
@@ -374,7 +379,7 @@ export function DateTimeField({
       <p id={hintId} className="text-xs text-muted-foreground">
         {withTime ? "YYYY-MM-DDTHH:mm · 本地时间" : "YYYY-MM-DD"}
       </p>
-      {error && (
+      {showError && (
         <p id={errorId} role="alert" className="text-sm text-destructive">
           {error}
         </p>

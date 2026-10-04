@@ -153,6 +153,7 @@ describe("business date contracts", () => {
       await user.click(screen.getByRole("button", { name: button }));
       expect(save).not.toHaveBeenCalled();
       expect(input).toHaveValue("2026-02-30");
+      expect(screen.getAllByText(/请输入有效的日期/)).toHaveLength(1);
       fireEvent.change(input, { target: { value: next } });
       await user.click(screen.getByRole("button", { name: button }));
       expect(save).toHaveBeenCalledWith(
