@@ -131,7 +131,7 @@
 @layer base {
   body {
     margin: 0;
-    min-width: 900px;
+    min-width: 0;
   }
   button:not(:disabled) {
     cursor: pointer;
