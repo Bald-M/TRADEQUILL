@@ -51,3 +51,31 @@
 
 - Windows 实机运行与安装包安装。
 - macOS 系统通知权限提示和通知投递未在人工验收中触发；提醒的到期判定、每日一次去重和 IPC 已由自动测试及本机构建覆盖。
+
+## 统一 Select 验收（Issue #26，客户与跟进部分）
+
+环境：macOS Apple Silicon，2026-10-04；候选提交 `10a6580`。使用独立应用标识和数据库目录的调试 `.app`，只使用合成记录。产品知识库四个下拉等待 #11/#23 合入目标分支后继续迁移，本节不代表整个 #26 已完成。
+
+### 自动验证
+
+- `pnpm typecheck`、`pnpm format:check`、`pnpm build`：通过。
+- `pnpm test`：7 个文件、37 个测试通过；长文本包装调整后，共享 Select 的 4 项测试及构建再次通过。新增真实 Radix 交互覆盖空值往返、数字 ID 和前缀文本值、动态选项回填与删除、disabled 与错误描述、方向键/Enter/Escape/Tab 和焦点恢复、四维组合筛选/无结果/清除、旧记录回填、失败保留及合法样品下一阶段。
+- `cargo fmt --manifest-path src-tauri/Cargo.toml --check`、`pnpm check:rust`：通过；`cargo test --manifest-path src-tauri/Cargo.toml --locked`：6 项通过。本次未修改 Rust、IPC 或数据库 schema。
+- `pnpm tauri build --debug --bundles app --config <独立验收配置>`：本机调试 `.app` 构建与启动通过；`pnpm tauri build --no-bundle`：正式配置的 macOS Apple Silicon release 原生编译通过。未验证安装包或正式签名。
+- Standards 与 Spec 两项独立审查：客户/跟进范围无有效发现；产品部分完成后需要增量复审。
+
+### 实际桌面验收
+
+- 浅/深主题与 1280 × 820、900 × 600 窗口下检查统一弹层。45 个产品选项可滚动，长名称与连续英文可完整折行；最小窗口弹层可翻转至触发器上方，页面滚动后的样品选择也可到达。
+- 键盘定位并确认长选项后，询盘历史只显示匹配记录；Escape 返回选择触发器，Tab 到达下一个筛选，恢复空项后清除筛选按钮禁用。
+- 样品未选下一阶段时显示关联字段错误。选“准备中”后错误清除，经真实 IPC 保存后历史更新，下一组选项变为“已寄出/已取消”。
+- 将独立验收数据库临时设为只读，报价保存失败时仍保留 `EUR`、不关联询盘、金额和内容；恢复写权限后重试成功。只读核对数据库为 `EUR`、4200 分、`inquiry_id = NULL`，样品为 `preparing`，`integrity_check` 为 `ok`。
+- 当前旧基线最小窗口仍有页面横向滚动条；待产品基础合入后的最终窗口验收另行复核，不能把中间候选描述为没有溢出。
+
+界面证据：[长选项浅色](assets/validation/issue26/select-long-light.png)、[长选项深色](assets/validation/issue26/select-long-dark.png)、[最小窗口浅色](assets/validation/issue26/select-min-light.png)、[最小窗口深色](assets/validation/issue26/select-min-dark.png)、[样品字段错误](assets/validation/issue26/select-stage-error.png)、[报价保存失败](assets/validation/issue26/select-save-failure.png)。
+
+### 待完成
+
+- #11/#23 合入后迁移并验证产品关联、资料类型、确认状态和使用范围。
+- 最终提交的完整检查、两项本地复审与远端 CI。
+- Windows 实机 WebView、安装和正式签名尚未验证。
