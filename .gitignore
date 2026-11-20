@@ -33,3 +33,6 @@ release/
 *.db
 *.db-*
 *.tsbuildinfo
+
+# Local private materials (manuals, supplier quotes, product research data)
+/local/
